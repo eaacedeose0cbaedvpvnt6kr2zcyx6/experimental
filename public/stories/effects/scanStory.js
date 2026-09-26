@@ -216,6 +216,12 @@
       // a scene was arriving and the reveal looked dead. Fade the visuals, keep the brush alive.
       uni.uScanOn.value = present > 0.002 ? 1 : 0;
 
+      // The effect is rebuilt on every scene change and its own listeners do not reliably
+      // survive the hand-over: the new instance had no idea where the pointer was (inside=false,
+      // ndc 0,0) and bailed before casting a ray. scanStory tracks the pointer above that churn,
+      // so push the live position every frame instead of waiting for an event after the swap.
+      if (ptr.inside) scan.setPointer(ptr.x, ptr.y, true, ptr.active);
+
       scan.update(dt);
 
       // mirror the trail into the engine's uniforms so the cloud opens with the mesh

@@ -843,7 +843,7 @@ PointStory.run({
   aberration:.022,    // barely-there colour fringing on the defocused edges
   scrub:2.4,          // heavier scroll lag = calmer camera
   // scan reveal: hovering opens the cloud onto the reconstructed surface underneath
-  onReady:ctx=>{ window.__pcCtx=ctx; window.scanStory=ScanStory.attach(ctx,{brushRadius:.16}); },
+  onReady:ctx=>{ window.scanStory=ScanStory.attach(ctx,{brushRadius:.16}); },
   hotspots:[
     {scene:'makkah',at:[4.2,1.5,3.6],kicker:'مكة',title:'الحجر الأسود',
      body:'الركن الذي يبتدئ منه الطواف وينتهي إليه، يستلمه الطائف أو يشير إليه في كل شوط.'},
