@@ -1,0 +1,921 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>الإسراء والمعراج</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* One night look on purpose: near-black ground, muted particle light, warm highlights only. */
+:root{
+  --bg:#050505;
+  --ink:#F1ECE3;
+  --dim:rgba(241,236,227,.64);
+  --faint:rgba(241,236,227,.2);
+  --warm:#FFFFFF;
+  color-scheme:dark;
+}
+html{background:var(--bg);direction:rtl}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;font-weight:300;
+  overflow-x:hidden;
+}
+#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
+.track{height:2400vh;position:relative}
+
+/* ---------- captions: only one is ever visible, so nothing can overlap ---------- */
+.captions{position:fixed;inset:0;pointer-events:none;z-index:1}
+.cap{position:absolute;visibility:hidden;opacity:0}
+.cap.on{visibility:visible;opacity:1}
+.cap--center{
+  inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  text-align:center;gap:.9rem;
+  padding:calc(12vh + env(safe-area-inset-top,0px)) 24px 0;
+}
+/* the title holds the top of the frame on its own; the verse and its reference drop to the foot */
+.cap--center:not(.cap--end)::before{content:"";position:absolute;left:0;right:0;bottom:0;height:34vh;background:linear-gradient(to top,rgba(8,9,12,.94) 0%,rgba(8,9,12,.86) 34%,rgba(8,9,12,.55) 68%,transparent 100%);pointer-events:none;opacity:0;transition:opacity 1.6s cubic-bezier(.25,.6,.3,1)}
+.cap--center.on:not(.cap--end)::before{opacity:1}
+.cap--center:not(.cap--end) .verse,.cap--center:not(.cap--end) .ref{position:absolute;left:0;right:0;margin-inline:auto;width:min(46rem,86vw)}
+.cap--center:not(.cap--end) .verse{bottom:calc(13vh + env(safe-area-inset-bottom,0px))}
+.cap--center:not(.cap--end) .ref{bottom:calc(8vh + env(safe-area-inset-bottom,0px))}
+.cap--end{justify-content:center;padding-top:0}
+.cap--side{
+  /* the subject holds the middle of the frame; the margins stay black, so the text lives there */
+  right:max(2.2vw,14px);
+  bottom:calc(9vh + env(safe-area-inset-bottom,0px));
+  width:min(21rem,31vw);
+  display:flex;flex-direction:column;gap:.55rem;
+}
+
+/* typewriter: an invisible full copy reserves the space, the ink layer writes over it */
+.tw{display:grid;margin:0}
+.tw>span{grid-area:1/1}
+.gh{color:transparent}
+.tx .w{display:inline-block;transform-origin:50% 90%;animation:wordIn .9s cubic-bezier(.16,.7,.2,1) both}
+@keyframes wordIn{
+  from{opacity:0;transform:perspective(520px) rotateX(-72deg) translateZ(-26px) translateY(.35em);filter:blur(4px)}
+  to{opacity:1;transform:none;filter:none}
+}
+.pen{
+  display:inline-block;width:.26em;height:.26em;border-radius:50%;
+  margin-inline-start:.12em;vertical-align:middle;opacity:0;
+  background:var(--warm);box-shadow:0 0 6px 1px rgba(255,255,255,.65),0 0 16px 3px rgba(255,255,255,.22);
+}
+.live .pen{opacity:1}
+.live .tx{text-shadow:0 0 12px rgba(232,214,186,.28)}
+.done .tx{transition:text-shadow 1.4s ease-out}
+/* headings are drawn in 3D particles on the canvas; the text here only holds the layout and stays readable to screen readers */
+.tw3d{text-wrap:wrap}
+
+.kicker{font-size:.9rem;color:var(--dim);font-weight:400}
+.hero-title{
+  font-family:Amiri,"Traditional Arabic",serif;font-weight:700;
+  font-size:clamp(3rem,10vw,7.4rem);line-height:1.15;
+}
+.verse{
+  font-family:Amiri,"Traditional Arabic",serif;
+  font-size:clamp(1.12rem,2.2vw,1.5rem);line-height:2.1;max-width:34em;
+}
+.ref{font-size:.82rem;color:var(--dim)}
+.hint{font-size:.88rem;color:var(--dim);margin-top:.6rem}
+.cap h2{
+  font-family:Amiri,"Traditional Arabic",serif;font-weight:700;
+  font-size:clamp(2rem,4.4vw,3.2rem);line-height:1.25;
+}
+.cap p{font-size:clamp(1rem,1.45vw,1.12rem);line-height:2;color:var(--dim)}
+.cap .verse-sm{font-family:Amiri,serif;font-size:clamp(1.15rem,2vw,1.4rem);line-height:2;color:var(--ink)}
+.again{
+  pointer-events:auto;margin-top:1.2rem;
+  appearance:none;background:transparent;color:var(--ink);
+  border:1px solid var(--faint);border-radius:999px;padding:.6rem 1.4rem;
+  font:inherit;font-size:.92rem;cursor:pointer;transition:border-color .3s,box-shadow .3s;
+}
+.again:hover{border-color:var(--warm);box-shadow:0 0 18px -6px var(--warm)}
+.again:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+
+/* ---------- chapter rail ---------- */
+.rail{
+  position:fixed;left:max(3vw,16px);top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:1.4rem;z-index:2;direction:ltr;
+}
+.rail::before,.rail .prog{content:"";position:absolute;left:4px;top:6px;bottom:6px;width:1px;background:var(--faint)}
+.rail .prog{background:var(--ink);transform-origin:top;transform:scaleY(0)}
+.rail button{
+  appearance:none;background:none;border:0;padding:2px 4px 2px 0;margin:0;cursor:pointer;
+  display:flex;align-items:center;gap:.8rem;color:var(--dim);
+  font:inherit;font-size:.84rem;border-radius:4px;position:relative;
+}
+.rail .dot{
+  width:9px;height:9px;border-radius:50%;border:1px solid var(--ink);
+  background:var(--bg);transition:background .5s,box-shadow .5s;flex:none;
+}
+.rail button[aria-current="step"]{color:var(--ink)}
+.rail button[aria-current="step"] .dot{background:var(--warm);border-color:var(--warm);box-shadow:0 0 10px rgba(255,255,255,.5)}
+.rail button:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.nogl{position:fixed;inset:0;display:none;place-items:center;text-align:center;padding:24px;font-size:1.1rem}
+
+@media (max-width:760px){
+  .rail .label{display:none}
+  .cap--side{right:18px;left:48px;width:auto;bottom:calc(7vh + env(safe-area-inset-bottom,0px))}
+  .cap--center{padding-inline:44px 20px}
+}
+@media (prefers-reduced-motion: reduce){.tx .w{animation:none}}
+</style>
+
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<main class="captions">
+  <section class="cap cap--center">
+    <h1 class="tw tw3d hero-title" data-tw="7">الإسراء والمعراج</h1>
+    <p class="tw verse" data-tw="24">سُبْحَانَ الَّذِي أَسْرَىٰ بِعَبْدِهِ لَيْلًا مِّنَ الْمَسْجِدِ الْحَرَامِ إِلَى الْمَسْجِدِ الْأَقْصَى الَّذِي بَارَكْنَا حَوْلَهُ لِنُرِيَهُ مِنْ آيَاتِنَا ۚ إِنَّهُ هُوَ السَّمِيعُ الْبَصِيرُ</p>
+    <p class="tw ref" data-tw="30">الإسراء · ١</p>
+  </section>
+
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠١ · مكة</p>
+    <h2 class="tw tw3d" data-tw="11">ليلةٌ عند البيت</h2>
+    <p class="tw" data-tw="34">في ليلةٍ من ليالي مكة، كان النبي ﷺ عند البيت الحرام بين النائم واليقظان، فأتاه جبريل عليه السلام.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٢ · زمزم</p>
+    <h2 class="tw tw3d" data-tw="11">طستٌ من ذهب</h2>
+    <p class="tw" data-tw="34">شُقّ صدره الشريف وغُسل بماء زمزم، ثم أُتي بطستٍ من ذهب ممتلئٍ حكمةً وإيمانًا فأُفرغ في صدره ثم أُطبق.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٣ · البراق</p>
+    <h2 class="tw tw3d" data-tw="11">خطوةٌ إلى منتهى البصر</h2>
+    <p class="tw" data-tw="34">ثم أُتي بالبراق، دابةٍ بيضاء فوق الحمار ودون البغل، يضع حافره عند منتهى طرفه.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٤ · الطريق</p>
+    <h2 class="tw tw3d" data-tw="11">من مكة إلى بيت المقدس</h2>
+    <p class="tw" data-tw="34">رحلةٌ أرضية في جزءٍ من ليلةٍ واحدة، عبر مسافةٍ كانت القوافل تقطعها ذهابًا وإيابًا في شهرين.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٥ · الطريق</p>
+    <h2 class="tw tw3d" data-tw="11">عند الكثيب الأحمر</h2>
+    <p class="tw" data-tw="34">قال ﷺ: «مررتُ على موسى ليلة أُسري بي عند الكثيب الأحمر، وهو قائمٌ يصلّي في قبره». رواه مسلم.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٦ · بيت المقدس</p>
+    <h2 class="tw tw3d" data-tw="11">المسجد الأقصى</h2>
+    <p class="tw" data-tw="34">بلغ بيت المقدس، الأرض التي بارك الله حولها، ومسرى الأنبياء من قبله.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٧ · بيت المقدس</p>
+    <h2 class="tw tw3d" data-tw="11">حلقة الأنبياء</h2>
+    <p class="tw" data-tw="34">قال ﷺ: «فربطته بالحلقة التي يربط بها الأنبياء، ثم دخلت المسجد فصلّيت فيه ركعتين».</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٨ · بيت المقدس</p>
+    <h2 class="tw tw3d" data-tw="11">إمام الأنبياء</h2>
+    <p class="tw" data-tw="34">وجُمع له الأنبياء، فحانت الصلاة فأمّهم ﷺ، كما في صحيح مسلم.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٩ · بيت المقدس</p>
+    <h2 class="tw tw3d" data-tw="11">اخترتَ الفطرة</h2>
+    <p class="tw" data-tw="34">جاءه جبريل بإناءٍ من خمر وإناءٍ من لبن، فاختار اللبن، فقال جبريل: اخترتَ الفطرة.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٠ · المعراج</p>
+    <h2 class="tw tw3d" data-tw="11">الصعود</h2>
+    <p class="tw" data-tw="34">ثم عُرج به من بيت المقدس إلى السماء، يصحبه جبريل عليه السلام.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١١ · المعراج</p>
+    <h2 class="tw tw3d" data-tw="11">أبواب السماء</h2>
+    <p class="tw" data-tw="34">استفتح جبريل، فقيل: مَن هذا؟ قال: جبريل. قيل: ومَن معك؟ قال: محمد. قيل: وقد أُرسل إليه؟ قال: نعم. قيل: مرحبًا به، فنِعم المجيء جاء.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٢ · السماء الدنيا</p>
+    <h2 class="tw tw3d" data-tw="11">آدم عليه السلام</h2>
+    <p class="tw" data-tw="34">عن يمينه أَسْوِدة وعن شماله أَسْوِدة، إذا نظر قِبَل يمينه ضحك، وإذا نظر قِبَل شماله بكى؛ هي نَسَمُ بنيه.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٣ · الثانية والثالثة</p>
+    <h2 class="tw tw3d" data-tw="11">ابنا الخالة ويوسف</h2>
+    <p class="tw" data-tw="34">في الثانية عيسى ويحيى عليهما السلام، وفي الثالثة يوسف عليه السلام وقد أُعطي شطر الحُسن.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٤ · من الرابعة إلى السادسة</p>
+    <h2 class="tw tw3d" data-tw="11">إدريس وهارون وموسى</h2>
+    <p class="tw" data-tw="34">إدريس في الرابعة ﴿وَرَفَعْنَاهُ مَكَانًا عَلِيًّا﴾، وهارون في الخامسة، وموسى في السادسة، عليهم السلام.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٥ · السماء السابعة</p>
+    <h2 class="tw tw3d" data-tw="11">البيت المعمور</h2>
+    <p class="tw" data-tw="34">وفيها إبراهيم عليه السلام مسندًا ظهره إلى البيت المعمور، يدخله كل يوم سبعون ألف ملك لا يعودون إليه.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٦ · سدرة المنتهى</p>
+    <h2 class="tw tw3d" data-tw="11">سدرة المنتهى</h2>
+    <p class="tw verse-sm" data-tw="20">عِندَ سِدْرَةِ الْمُنتَهَىٰ ۝ عِندَهَا جَنَّةُ الْمَأْوَىٰ</p>
+    <p class="tw" data-tw="34">شجرةٌ ورقها كآذان الفيلة، وثمرها كالقِلال، غشيها من أمر الله ما غشي فتغيّرت، فما أحدٌ يستطيع أن ينعتها من حسنها.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٧ · سدرة المنتهى</p>
+    <h2 class="tw tw3d" data-tw="11">الأنهار الأربعة</h2>
+    <p class="tw" data-tw="34">وفي أصلها أربعة أنهار: نهران باطنان ونهران ظاهران؛ فأما الباطنان ففي الجنة، وأما الظاهران فالنيل والفرات.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٨ · فرض الصلاة</p>
+    <h2 class="tw tw3d" data-tw="11">خمسٌ وهي خمسون</h2>
+    <p class="tw" data-tw="34">فُرضت خمسون صلاة، فمرّ بموسى فقال: إن أمتك لا تطيق ذلك، فما زال يراجع ربه حتى صارت خمسًا: «هي خمسٌ وهي خمسون، لا يُبدَّل القول لديّ».</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٩ · العودة</p>
+    <h2 class="tw tw3d" data-tw="11">قبل الفجر</h2>
+    <p class="tw" data-tw="34">عاد إلى مكة في ليلته، فلما أصبح حدّث الناس بما رأى، فكذّبته قريش وسألوه أن يصف لهم بيت المقدس.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢٠ · العودة</p>
+    <h2 class="tw tw3d" data-tw="11">جلّى الله له بيت المقدس</h2>
+    <p class="tw" data-tw="34">قال ﷺ: «فجلّى الله لي بيت المقدس، فطفقتُ أُخبرهم عن آياته وأنا أنظر إليه». رواه البخاري.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢١ · العودة</p>
+    <h2 class="tw tw3d" data-tw="11">الصدّيق</h2>
+    <p class="tw" data-tw="34">وقال أبو بكر: إن كان قال فقد صدق، إني لأصدّقه فيما هو أبعد من ذلك، أصدّقه بخبر السماء. فسُمّي الصدّيق.</p>
+  </section>
+  <section class="cap cap--center cap--end">
+    <p class="tw tw3d verse" data-tw="12" style="font-size:clamp(1.8rem,4.4vw,3rem);font-weight:700">لَقَدْ رَأَىٰ مِنْ آيَاتِ رَبِّهِ الْكُبْرَىٰ</p>
+    <p class="tw ref" data-tw="30">النجم · ١٨</p>
+  </section>
+</main>
+
+<nav class="rail" aria-label="فصول الرحلة">
+  <span class="prog" id="prog"></span>
+  <button data-go="0" type="button"><span class="dot"></span><span class="label" dir="rtl">مكة</span></button>
+  <button data-go="3" type="button"><span class="dot"></span><span class="label" dir="rtl">البراق والطريق</span></button>
+  <button data-go="6" type="button"><span class="dot"></span><span class="label" dir="rtl">بيت المقدس</span></button>
+  <button data-go="10" type="button"><span class="dot"></span><span class="label" dir="rtl">المعراج</span></button>
+  <button data-go="16" type="button"><span class="dot"></span><span class="label" dir="rtl">سدرة المنتهى</span></button>
+  <button data-go="19" type="button"><span class="dot"></span><span class="label" dir="rtl">العودة</span></button>
+</nav>
+
+<div class="track" aria-hidden="true"></div>
+<div class="nogl" id="nogl">يحتاج هذا العرض إلى متصفح يدعم WebGL.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
+<script src="engine.js"></script>
+<script src="effects/landmarks.js"></script>
+<script src="effects/meshify.js"></script>
+<script src="effects/scanReveal.js"></script>
+<script src="effects/scanStory.js"></script>
+<script>
+(function(){
+const {figure,light,o,R,rn,fr,gs,TAU,smooth,inBall,archOpen,cw,choose,set,shadeN,LD,box,cyl,dome,sphere,ellip,disk,ring,rod,person,prostrate,sheep,palm,reed,flame,stars,cloud,terrain,pyramid,column,tree,mix}=PointStory.H;
+const small=matchMedia('(max-width: 760px)').matches;
+/* ================= 1. Makkah ================= */
+function genKaaba(){
+  const W=4,D=3.5,H=10;
+  const sh=[shadeN(1,0,0),shadeN(-1,0,0),shadeN(0,0,1),shadeN(0,0,-1),shadeN(0,1,0)].map(v=>v*1.2);
+  const PN=small?3500:9000,pp=new Float32Array(PN*3);
+  for(let i=0;i<PN;i++){const r=6.4+Math.pow(R(),1.6)*21,th=R()*TAU;pp[i*3]=Math.cos(th)*r;pp[i*3+1]=Math.sin(th)*r;pp[i*3+2]=rn(1.55,1.85);}
+  const sup=th=>{const c=Math.abs(Math.cos(th)),s=Math.abs(Math.sin(th));return 1/Math.pow(c**4+s**4,.25);};
+  const NB=Math.floor(TAU*40/3.6);
+  const cum=cw([.21,.025,.27,.12,.21,.06,.02,.07,.015]);
+  return ()=>{for(;;){switch(choose(cum)){
+    case 0:{ // the Kaaba
+      const f=Math.floor(R()*5);
+      if(f===4){const x=rn(-W,W),z=rn(-D,D),e=Math.abs(x)>W-.12||Math.abs(z)>D-.12;return set(x,H+(e?R()*.25:0),z,e?1.25:.5*sh[4]);}
+      const side=(f&1)?-1:1,u=rn(-1,1),y=R()*H;let x,z,lu;
+      if(f<2){x=side*W;z=u*D;lu=z;}else{z=side*D;x=u*W;lu=x;}
+      // black kiswa with a faint woven damask
+      let b=.24+.16*Math.pow(Math.abs(Math.sin((lu+y)*8.5)*Math.sin((lu-y)*8.5)),3);
+      // the embroidered band (hizam) in calligraphy panels
+      if(y>6.7&&y<7.75){const pan=fr(lu/1.9);b=(pan<.04||pan>.96)?1.5:.7+.95*Math.pow(Math.abs(Math.sin(lu*15+Math.sin(y*26)*1.8)),6);}
+      if(Math.abs(y-6.66)<.05||Math.abs(y-7.79)<.05)b=1.45;
+      // medallions under the band
+      const mq=fr(lu/1.6)-.5,my=y-5.6;if(mq*mq/.03+my*my/.2<1&&R()<.7)b=Math.max(b,.9);
+      // door and curtain (sitara) on the north-east face
+      if(f===2&&x>.4&&x<3.2&&y>1.7&&y<7.1){
+        const inDoor=x>.8&&x<2.8&&y>2.1&&y<6.1;
+        b=inDoor?((x<.95||x>2.65||y>5.95||Math.abs(x-1.8)<.06)?1.8:1+.35*(fr(y*2.2)<.12?1:0))
+                :.65+.6*Math.pow(Math.abs(Math.sin(x*11)*Math.sin(y*9)),3);
+      }
+      // the Black Stone corner in its silver frame
+      if(f===0||f===2){const al=f===0?D-z:W-x,dd=Math.hypot(al,y-1.5);if(Math.abs(dd-.32)<.06)b=1.9;else if(dd<.26)b=.25;}
+      // shadharwan: the sloping marble plinth
+      if(y<.45){b=.95;const fl=(.45-y)*.9;if(f<2)x+=side*fl;else z+=side*fl;}
+      if(R()<.08){if(f<2)z=D*Math.sign(u);else x=W*Math.sign(u);b=Math.max(b,1.2);}
+      return set(x,y,z,b*sh[f]);
+    }
+    case 1:{ // Hijr Ismail
+      const th=rn(-Math.PI/2,Math.PI/2),q=R();let r,y,b;
+      if(q<.4){r=4.5;y=R()*1.3;b=.55;}else if(q<.8){r=5;y=R()*1.3;b=.8;}else{r=rn(4.5,5);y=1.3;b=1.3;}
+      if(fr(th*6)<.04&&y<1.3)b+=.3;
+      return set(-W-Math.cos(th)*r,y,Math.sin(th)*r,b);
+    }
+    case 2:{ // people in tawaf: legs, torso, head
+      const k=Math.floor(R()*PN),px=pp[k*3],pz=pp[k*3+1],h=pp[k*3+2],rr=Math.hypot(px,pz),ux=px/rr,uz=pz/rr,q=R(),th=R()*TAU;
+      let x,y,z,b=rn(.8,1.1);
+      if(q<.28){const lg=R()<.5?-1:1;x=px+ux*lg*.1+Math.cos(th)*.07;z=pz+uz*lg*.1+Math.sin(th)*.07;y=R()*h*.48;b*=.8;}
+      else if(q<.86){const c=Math.cos(th),s=Math.sin(th),yy=rn(.48,.84),sw=.12+.09*smooth(.5,.8,yy);
+        x=px+ux*c*sw-uz*s*.12;z=pz+uz*c*sw+ux*s*.12;y=h*yy;b*=.8+.4*Math.max(0,c*ux*LD[0]+c*uz*LD[2]+.4);}
+      else{const ph=Math.acos(rn(-1,1));x=px+Math.sin(ph)*Math.cos(th)*.11;y=h*.93+Math.cos(ph)*.12;z=pz+Math.sin(ph)*Math.sin(th)*.11;b=.9;}
+      return set(x,y,z,b,1);
+    }
+    case 3:{ // marble mataf
+      const r=Math.sqrt(R())*34,th=R()*TAU,x=Math.cos(th)*r,z=Math.sin(th)*r;
+      let b=.18+.06*R();if(fr(x/1.6)<.04||fr(z/1.6)<.04)b=.34;if(r>6&&fr(r/3.2)<.025)b=.5;
+      b+=.08*Math.pow(Math.abs(Math.sin(x*1.7+Math.sin(z*.9)*2)),8);
+      return set(x,0,z,b);
+    }
+    case 4:{ // Ottoman portico: two storeys of arches, columns, a dome over each bay
+      const q=R();
+      if(q<.6){
+        const th=R()*TAU,c=Math.cos(th),s=Math.sin(th),u=th*40,sf=shadeN(-c,0,-s)*1.15;
+        const y=R()*14,ly=y-(y<7?0:7),lw=fr(u/3.6)*3.6-1.8,dx=Math.abs(lw);
+        let rr=36*sup(th),b=.62;
+        if(archOpen(dx,ly,1.3,3.9)){if(R()<.75)continue;rr+=rn(1.5,5.5);b=.14;}
+        else if(archOpen(dx,ly,1.42,3.9))b=1.25;
+        if(ly>6.55)b=1;
+        if(dx>1.62)b=.72+(fr(ly*1.5)<.1?.25:0);
+        return set(c*rr,y,s*rr,b*sf);
+      }
+      if(q<.72){
+        const n=Math.floor(R()*NB),th=n*3.6/40,row=R()<.5?2.4:5.4,rr=36*sup(th)+row,a=R()*TAU,y=R()*14;
+        return set(Math.cos(th)*rr+Math.cos(a)*.26,y,Math.sin(th)*rr+Math.sin(a)*.26,.45+.4*Math.max(0,Math.cos(a)*LD[0]+Math.sin(a)*LD[2]));
+      }
+      if(q<.9){
+        const n=Math.floor(R()*NB),th=(n+.5)*3.6/40,row=R()<.5?1.8:5.2,rr=36*sup(th)+row,a=R()*TAU,ph=Math.acos(R()),r=1.45;
+        const nx=Math.sin(ph)*Math.cos(a),ny=Math.cos(ph),nz=Math.sin(ph)*Math.sin(a);
+        return set(Math.cos(th)*rr+nx*r,14+ny*r*.8,Math.sin(th)*rr+nz*r,(.35+.45*Math.pow(Math.abs(Math.cos(a*6)),20))*shadeN(nx,ny,nz)*1.2);
+      }
+      const th=R()*TAU,rr=36*sup(th)+R()*7;
+      return set(Math.cos(th)*rr,14,Math.sin(th)*rr,.28+(fr(rr/1.5)<.06?.22:0));
+    }
+    case 5:{ // minarets
+      const m=Math.floor(R()*7),a=m/7*TAU+.3,rr=36*sup(a)+3.5,cx=Math.cos(a)*rr,cz=Math.sin(a)*rr,th=R()*TAU,q=R();
+      const lit=shadeN(Math.cos(th),0,Math.sin(th))*1.2;
+      if(q<.68){
+        const y=R()*52,sec=y<20?0:y<34?1:y<46?2:3,r=[1.25,1.05,.9,.75][sec];
+        const seg=TAU/8,oa=Math.round(th/seg)*seg,rp=r/Math.cos(th-oa);
+        let b=.55+(fr(y/3.5)<.05?.4:0);if(Math.abs(fr(th/seg)-.5)>.45)b=1.05;
+        return set(cx+Math.cos(th)*rp,y,cz+Math.sin(th)*rp,b*lit);
+      }
+      if(q<.88){const base=[20,34,46][Math.floor(R()*3)],yy=R()*.7,r=1.15+.75*(yy/.7);
+        return set(cx+Math.cos(th)*r,base+yy,cz+Math.sin(th)*r,(.7+(fr(th/TAU*24)<.2?.5:0))*lit);}
+      if(q<.97){const y=rn(52,60),r=.8*(1-(y-52)/8);return set(cx+Math.cos(th)*r,y,cz+Math.sin(th)*r,.9*lit);}
+      const c=rn(.6,5.7);return set(cx+Math.cos(c)*.45*Math.cos(a),61+Math.sin(c)*.45,cz+Math.cos(c)*.45*Math.sin(a),1.4);
+    }
+    case 6:{ // Maqam Ibrahim: plinth, crystal bell, golden lattice
+      const cx=1.8,cz=10,th=R()*TAU,q=R();
+      if(q<.25){const r=R()<.5?.9:rn(0,.9),y=r>.89?R()*.35:.35;return set(cx+Math.cos(th)*r,y,cz+Math.sin(th)*r,.6);}
+      const y=rn(.35,2.1),r=y<1.5?.55:.55*Math.sqrt(Math.max(0,1-((y-1.5)/.6)**2));
+      const lat=(fr(th/TAU*12)<.08||fr(y*4)<.08)?1.7:.4;
+      return set(cx+Math.cos(th)*r,y,cz+Math.sin(th)*r,lat);
+    }
+    case 7:{ // the hills of Makkah, with contour lines
+      const r=rn(58,125),th=R()*TAU;
+      const hf=a=>Math.max(0,1-Math.abs(r-90)/35)*(12+9*Math.sin(a*3+.5)+6*Math.sin(a*7+1.3)+3*Math.sin(a*19));
+      const h=hf(th),sl=(hf(th+.02)-h)/(r*.02);
+      return set(Math.cos(th)*r,h+gs()*.1,Math.sin(th)*r,(.16+.02*h+(fr(h/2.5)<.06?.3:0))*(.7+.5*Math.max(0,-sl)));
+    }
+    default:{const r=Math.sqrt(R())*30,th=R()*TAU;return set(Math.cos(th)*r,R()*24,Math.sin(th)*r,.5,8);}
+  }}};
+}
+
+/* ================= 2. The road ================= */
+function genDesert(){
+  const dH=(x,z)=>3.2*Math.sin(x*.07+z*.025)+1.8*Math.sin(x*.021-z*.09)+1.2*Math.abs(Math.sin(x*.05+z*.04+1.3));
+  const SUN=(()=>{const v=[-.7,.42,.58],l=Math.hypot(...v);return v.map(c=>c/l);})();
+  const palms=[];for(let i=0;i<18;i++){const x=rn(-75,75),z=rn(-55,45);palms.push([x,z,dH(x,z),rn(7,10),rn(-.25,.25),rn(-.25,.25)]);}
+  const rocks=[];for(let i=0;i<34;i++){const x=rn(-85,85),z=rn(-65,60);rocks.push([x,z,dH(x,z),rn(.6,2.2)]);}
+  const trail=t=>[-60+100*t+12*Math.sin(t*5),3+6*t+2.5*Math.sin(t*9),55-125*t];
+  const TH=.72;
+  const cum=cw([.5,.09,.1,.1,.04,.05,.12]);
+  return ()=>{switch(choose(cum)){
+    case 0:{const x=rn(-95,95),z=rn(-75,75),h=dH(x,z);
+      const nx=-(dH(x+.4,z)-dH(x-.4,z))/.8,nz=-(dH(x,z+.4)-dH(x,z-.4))/.8,nl=Math.hypot(nx,1,nz);
+      let b=.12+1.4*Math.max(0,(nx*SUN[0]+SUN[1]+nz*SUN[2])/nl);
+      b*=.6+.4*Math.pow(Math.abs(Math.sin(x*2.2+z*.9+h*1.5)),3);
+      if(fr(h/.8)<.04)b+=.22;
+      return set(x,h,z,b);}
+    case 1:{const x=rn(-115,115),mh=10+7*Math.sin(x*.05)+5*Math.sin(x*.13+1)+2.5*Math.sin(x*.41);
+      if(R()<.18)return set(x,mh,-75-R()*2,.75);
+      const y=R()*mh;return set(x+gs()*.2,y,-75-R()*8*(1-y/mh),.22+.45*y/mh+(fr(y/2)<.05?.25:0));}
+    case 2:{const q=R();
+      if(q<.16){const p=trail(TH);return set(p[0]+gs()*.55,p[1]+gs()*.55,p[2]+gs()*.55,1.9,6);}
+      const t=TH*Math.sqrt(R()),p=trail(t),sp=.12+(TH-t)*1.6*(q>.9?3:1);
+      return set(p[0]+gs()*sp,p[1]+gs()*sp*.5,p[2]+gs()*sp,.45+1.2*t/TH,6);}
+    case 3:{const P=palms[Math.floor(R()*palms.length)],h=P[3];
+      if(R()<.42){const t=R(),th=R()*TAU,r=.3*(1-t*.3);
+        return set(P[0]+P[4]*t*t*h+Math.cos(th)*r,P[2]+t*h,P[1]+P[5]*t*t*h+Math.sin(th)*r,(.4+(fr(t*h*2)<.22?.45:0))*shadeN(Math.cos(th),0,Math.sin(th))*1.2);}
+      const tx=P[0]+P[4]*h,tz=P[1]+P[5]*h,ty=P[2]+h,k=Math.floor(R()*9),a=k/9*TAU+P[4]*4,s=R(),w=gs()*.45*(1-s);
+      return set(tx+Math.cos(a)*s*4.2-Math.sin(a)*w,ty+1.2*s-3.4*s*s,tz+Math.sin(a)*s*4.2+Math.cos(a)*w,.5+.35*(1-s),5);}
+    case 4:{const P=rocks[Math.floor(R()*rocks.length)],th=R()*TAU,ph=Math.acos(R()),r=P[3]*(1+gs()*.12);
+      const nx=Math.sin(ph)*Math.cos(th),ny=Math.cos(ph),nz=Math.sin(ph)*Math.sin(th);
+      return set(P[0]+nx*r*1.3,P[2]+ny*r*.7,P[1]+nz*r,.5*shadeN(nx,ny,nz));}
+    case 5:{const x=rn(-95,95),z=rn(-75,75);return set(x,dH(x,z)+rn(0,.6),z,.3,7);}
+    default:{const x=rn(-150,150);
+      if(R()<.5)return set(x,45+x*.22+gs()*6,rn(-110,20),.2+Math.pow(R(),5)*1.2,4);
+      return set(x,rn(25,95),rn(-110,40),.16+Math.pow(R(),7)*1.6,4);}
+  }};
+}
+
+/* ================= 3. Bayt al-Maqdis ================= */
+function genAqsa(){
+  const Q=Math.PI/4,FL=2*10*Math.sin(Math.PI/8),y0=-2.4;
+  const trees=[];while(trees.length<64){const x=rn(-33,33),z=rn(-33,33),m=Math.max(Math.abs(x),Math.abs(z));
+    if(m<21||(Math.abs(x)<12&&z<-19))continue;trees.push([x,z,rn(.8,1.4),rn(2,3.4)]);}
+  const houses=[];while(houses.length<230){const x=rn(-85,85),z=rn(-85,85);if(Math.max(Math.abs(x),Math.abs(z))<40)continue;
+    houses.push([x,z,rn(1.5,3.5),rn(1.5,3.5),rn(3,7),R()<.3]);}
+  const cum=cw([.07,.21,.06,.2,.08,.03,.12,.08,.09,.05,.01]);
+  return ()=>{for(;;){switch(choose(cum)){
+    case 0:{const x=rn(-35,35),z=rn(-35,35),m=Math.max(Math.abs(x),Math.abs(z));
+      let b=.13+((fr(x/2.5)<.05||fr(z/2.5)<.05)?.28:0);if(Math.abs(m-17)<.25)b=.8;
+      return set(x,m<17?0:y0,z,b);}
+    case 1:{ // octagon walls with windows, tile panels and inscription bands
+      const k=Math.floor(R()*8),t=R(),a0=k*Q+Q/2,a1=a0+Q,na=a0+Q/2;
+      let x=Math.cos(a0)*10*(1-t)+Math.cos(a1)*10*t,z=Math.sin(a0)*10*(1-t)+Math.sin(a1)*10*t;
+      const y=R()*7.8,lu=(t-.5)*FL,pw=FL/5,dx=Math.abs(fr((lu+FL/2)/pw)*pw-pw/2);
+      const win=y>3.9&&archOpen(dx,y-3.9,.34,1.8),door=(k%2===0)&&Math.abs(lu)<1.1&&y<3.1;
+      let b=.38+.3*Math.pow(Math.abs(Math.sin(lu*9)*Math.sin(y*9)),2);
+      if(win||door){if(R()<.85)continue;b=.08;x*=.93;z*=.93;}
+      else if(y>3.8&&archOpen(dx,y-3.9,.46,1.8))b=1.1;
+      if((y>3.3&&y<3.55)||(y>6.6&&y<6.9))b=1.15;
+      if(Math.abs(lu)>FL/2-.22)b=1.2;
+      if(y>7.2)b=.85;
+      return set(x,y,z,b*shadeN(Math.cos(na),0,Math.sin(na))*1.2);}
+    case 2:{const th=R()*TAU,y=rn(7.8,11),sec=fr(th/TAU*16)-.5,w=Math.abs(sec)<.17&&y>8.5&&y<10.2;
+      if(w&&R()<.85)continue;
+      let b=w?.08:.55;if(y>10.8)b=1.2;else if(!w&&Math.abs(sec)<.22&&y>8.4&&y<10.35)b=1.05;
+      return set(Math.cos(th)*5.3,y,Math.sin(th)*5.3,b*shadeN(Math.cos(th),0,Math.sin(th))*1.2);}
+    case 3:{ // the dome: ribs, latitude courses, finial and crescent
+      if(R()<.05){if(R()<.5)return set(gs()*.04,rn(17.4,19.4),gs()*.04,1.5);
+        const a=rn(.5,5.8);return set(Math.cos(a)*.55,20+Math.sin(a)*.55,0,1.6);}
+      const th=R()*TAU,ph=Math.acos(R()),sp=Math.sin(ph),nx=sp*Math.cos(th),ny=Math.cos(ph),nz=sp*Math.sin(th);
+      const b=.55+1.1*Math.pow(Math.abs(Math.cos(th*16)),60)+.35*Math.pow(Math.abs(Math.sin(ph*14)),40);
+      return set(nx*5.6,11+6.4*ny,nz*5.6,b*shadeN(nx,ny,nz)*1.15);}
+    case 4:{const sd=Math.floor(R()*4),ca=Math.cos(sd*Math.PI/2),sa=Math.sin(sd*Math.PI/2),q=R();let lu,ld,y,b;
+      if(q<.55){lu=rn(-6,6);y=R()*6.5;const dx=Math.abs(fr((lu+6)/3)*3-1.5);
+        if(archOpen(dx,y,1.15,4.2))continue;
+        b=archOpen(dx,y,1.28,4.2)?1.2:.5;if(y>5.9)b=.9;ld=17+R()*.5;b*=shadeN(ca,0,sa)*1.2;}
+      else if(q<.8){const st=Math.floor(R()*8);lu=rn(-6,6);ld=17.6+st*.5+R()*.5;y=-st*.3;b=R()<.2?.85:.3;}
+      else{lu=rn(-17,17);if(Math.abs(lu)<6.2)continue;ld=17;y=rn(y0,0);b=.3+(fr(y/.6)<.1?.25:0);}
+      return set(ca*ld-sa*lu,y,sa*ld+ca*lu,b);}
+    case 5:{const cx=13.4,cz=2,q=R();
+      if(q<.45){const a=Math.floor(R()*11)/11*TAU,th=R()*TAU;return set(cx+Math.cos(a)*2.6+Math.cos(th)*.13,R()*3.6,cz+Math.sin(a)*2.6+Math.sin(th)*.13,.85);}
+      if(q<.6){const a=R()*TAU;return set(cx+Math.cos(a)*2.8,rn(3.6,4.1),cz+Math.sin(a)*2.8,.75);}
+      const th=R()*TAU,ph=Math.acos(R()),nx=Math.sin(ph)*Math.cos(th),ny=Math.cos(ph),nz=Math.sin(ph)*Math.sin(th);
+      return set(cx+nx*2.1,4.1+ny*2.3,cz+nz*2.1,(.6+.8*Math.pow(Math.abs(Math.cos(th*8)),30))*shadeN(nx,ny,nz)*1.2);}
+    case 6:{ // al-Qibli mosque
+      const q=R();
+      if(q<.3){const x=rn(-9,9),y=R()*10,dx=Math.abs(fr((x+9)/(18/7))*(18/7)-9/7);
+        if(archOpen(dx,y,.95,3.2))continue;
+        return set(x,y0+y,-23,(archOpen(dx,y,1.07,3.2)?1.15:(y>9.5?.85:.4))*shadeN(0,0,1)*1.2);}
+      if(q<.55){const sx=R()<.5?-9:9,z=rn(-41,-23),y=R()*10,w=Math.abs(fr(z/2.6)-.5)<.12&&y>5&&y<8;
+        if(w&&R()<.85)continue;return set(sx,y0+y,z,(w?.08:.36)*shadeN(Math.sign(sx),0,0)*1.2);}
+      if(q<.78){const x=rn(-9,9),z=rn(-41,-23);return set(x,y0+10+(9-Math.abs(x))*.28,z,.26+(fr(z/1.3)<.1?.3:0));}
+      const th=R()*TAU;
+      if(R()<.3)return set(Math.cos(th)*3,y0+rn(12.5,14.6),-37+Math.sin(th)*3,.5*shadeN(Math.cos(th),0,Math.sin(th))*1.2);
+      const ph=Math.acos(R()),nx=Math.sin(ph)*Math.cos(th),ny=Math.cos(ph),nz=Math.sin(ph)*Math.sin(th);
+      return set(nx*3.1,y0+14.6+ny*3.1,-37+nz*3.1,(.65+.7*Math.pow(Math.abs(Math.cos(th*12)),40))*shadeN(nx,ny,nz)*1.2);}
+    case 7:{const T=trees[Math.floor(R()*trees.length)];
+      if(R()<.12)return set(T[0]+gs()*.08,y0+R()*1.2,T[1]+gs()*.08,.45);
+      const th=R()*TAU,ph=Math.acos(rn(-1,1)),rr=1+gs()*.08,nx=Math.sin(ph)*Math.cos(th),ny=Math.cos(ph),nz=Math.sin(ph)*Math.sin(th);
+      return set(T[0]+nx*T[2]*rr,y0+1.2+T[3]+ny*T[3]*rr,T[1]+nz*T[2]*rr,(.25+.4*R())*shadeN(nx,ny,nz)*1.3,5);}
+    case 8:{const [hx,hz,hw,hd,hh,dm]=houses[Math.floor(R()*houses.length)],f=Math.floor(R()*5),yb=-3;
+      if(f===4){if(dm&&R()<.5){const th=R()*TAU,ph=Math.acos(R()),r=Math.min(hw,hd)*.8;
+          return set(hx+Math.sin(ph)*Math.cos(th)*r,yb+hh+Math.cos(ph)*r,hz+Math.sin(ph)*Math.sin(th)*r,.4);}
+        return set(hx+rn(-hw,hw),yb+hh,hz+rn(-hd,hd),.26);}
+      const u=rn(-1,1),y=R()*hh;let x,z,sn;
+      if(f<2){x=hx+(f?-hw:hw);z=hz+u*hd;sn=shadeN(f?-1:1,0,0);}else{z=hz+(f===2?hd:-hd);x=hx+u*hw;sn=shadeN(0,0,f===2?1:-1);}
+      return set(x,yb+y,z,R()<.02?1.1:(.14+.1*R())*sn*1.3);}
+    case 9:{const sd=Math.floor(R()*4),lu=rn(-36,36);let y=rn(-3,3);
+      if(R()<.2)y=3+(fr(lu/1.2)<.5?.8:0)*R();
+      const b=.3+(fr(y/.7)<.08?.22:0);
+      if(sd===0)return set(lu,y,36,b);if(sd===1)return set(lu,y,-36,b);if(sd===2)return set(36,y,lu,b);return set(-36,y,lu,b);}
+    default:{const [x,y,z]=inBall();return set(x*30,8+y*10,z*30,.45,8);}
+  }}};
+}
+
+/* ================= 4. The seven heavens ================= */
+function genHeavens(){
+  const gal=[[-55,20,-45,.6],[62,48,-25,-.4],[-35,68,48,1.1],[40,5,55,.2]];
+  const cum=cw([.76,.09,.07,.08]);
+  return ()=>{switch(choose(cum)){
+    case 0:{const k=Math.floor(R()*7),r=9.5+Math.pow(R(),.8)*14+k*.7,th=R()*TAU;
+      let b=.32+1.2*Math.pow(Math.abs(Math.sin(r*2.4)),10);
+      if(r>12&&fr(th/TAU*72)<.04)b+=.55;
+      if(r<10+k*.7)b=1.25;
+      return set(Math.cos(th)*r,k*12+gs()*.05,Math.sin(th)*r,b*(.8+k*.05),k%2?3:2);}
+    case 1:{if(R()<.6)return set(gs()*.22,rn(-6,72),gs()*.22,1.4,6);
+      const t=R(),a=t*TAU*6;return set(Math.cos(a)*2.6+gs()*.07,t*72,Math.sin(a)*2.6+gs()*.07,1,6);}
+    case 2:{ // al-Bayt al-Ma'mur
+      const W=3,H=6.5,yb=72.5,f=Math.floor(R()*5);
+      if(f===4){const x=rn(-W,W),z=rn(-W,W);return set(x,yb+H,z,(Math.abs(x)>W-.15||Math.abs(z)>W-.15)?1.5:.6);}
+      const s=(f&1)?-1:1,u=rn(-1,1),y=R()*H;let x,z,nx=0,nz=0;
+      if(f<2){x=s*W;z=u*W;nx=s;}else{z=s*W;x=u*W;nz=s;}
+      let b=.6;if(y>4.4&&y<5.1)b=1.45;
+      if(R()<.14){if(f<2)z=W*Math.sign(u);else x=W*Math.sign(u);b=1.5;}
+      return set(x,yb+y,z,b*shadeN(nx,0,nz)*1.2);}
+    default:{
+      if(R()<.5){const g=gal[Math.floor(R()*gal.length)],arm=Math.floor(R()*2),t=Math.pow(R(),.7),rr=t*14,a=arm*Math.PI+t*4.5;
+        const lx=Math.cos(a)*rr+gs()*(.4+t),lz=Math.sin(a)*rr+gs()*(.4+t),ly=gs()*.4*(1-t),c=Math.cos(g[3]),s=Math.sin(g[3]);
+        return set(g[0]+lx,g[1]+ly*c-lz*s,g[2]+ly*s+lz*c,.3+(1-t)*.95,4);}
+      const [x,y,z]=inBall();return set(x*95,36+y*80,z*95,.14+Math.pow(R(),8)*1.6,4);}
+  }};
+}
+
+/* ================= 5. Sidrat al-Muntaha ================= */
+function genSidra(){
+  const segs=[],tips=[];
+  (function br(sx,sy,sz,dx,dy,dz,len,rad,depth){
+    const ex=sx+dx*len,ey=sy+dy*len,ez=sz+dz*len;
+    let ax=0,ay=1,az=0;if(Math.abs(dy)>.9){ax=1;ay=0;}
+    let ux=dy*az-dz*ay,uy=dz*ax-dx*az,uz=dx*ay-dy*ax;const ul=Math.hypot(ux,uy,uz);ux/=ul;uy/=ul;uz/=ul;
+    const vx=dy*uz-dz*uy,vy=dz*ux-dx*uz,vz=dx*uy-dy*ux;
+    segs.push([sx,sy,sz,dx,dy,dz,len,rad,rad*.72,depth,ux,uy,uz,vx,vy,vz]);
+    if(depth===0){tips.push([ex,ey,ez]);return;}
+    const kids=depth>4?2:3;
+    for(let k=0;k<kids;k++){
+      const nx=dx+rn(-1,1)*.8,ny=dy+rn(-.15,.85)*.8,nz=dz+rn(-1,1)*.8,l=Math.hypot(nx,ny,nz);
+      br(ex,ey,ez,nx/l,ny/l,nz/l,len*rn(.68,.82),rad*.72*rn(.85,1),depth-1);
+    }
+  })(0,-18,0,0,1,0,9,1.7,7);
+  const sw=new Float64Array(segs.length);let acc=0;
+  segs.forEach((s,i)=>{acc+=s[6]*(s[7]+s[8]+.05);sw[i]=acc;});
+  const pickSeg=()=>{const r=R()*acc;let lo=0,hi=sw.length-1;while(lo<hi){const m=(lo+hi)>>1;if(sw[m]<r)lo=m+1;else hi=m;}return segs[lo];};
+  // broad leaves ("like elephant ears"): each is a small oriented oval
+  const LV=small?1400:3200,leaves=new Float32Array(LV*9);
+  for(let i=0;i<LV;i++){const t=tips[Math.floor(R()*tips.length)],[a,b,c]=inBall(),[n0,n1,n2]=inBall(),nl=Math.hypot(n0,n1+.8,n2)||1;
+    leaves.set([t[0]+a*2.4,t[1]+b*1.3,t[2]+c*2.4,n0/nl,(n1+.8)/nl,n2/nl,rn(.35,.7),rn(.2,.4),R()*TAU],i*9);}
+  const fruits=tips.filter((_,i)=>i%5===0).map(t=>[t[0]+gs()*.8,t[1]-rn(.5,1.8),t[2]+gs()*.8]);
+  const cum=cw([.42,.14,.08,.05,.07,.13,.07,.04]);
+  return ()=>{switch(choose(cum)){
+    case 0:{const s=pickSeg(),t=R(),th=R()*TAU,r=s[7]+(s[8]-s[7])*t,c=Math.cos(th),sn=Math.sin(th),L=s[6]*t;
+      const nx=s[10]*c+s[13]*sn,ny=s[11]*c+s[14]*sn,nz=s[12]*c+s[15]*sn;
+      const groove=Math.pow(Math.abs(Math.sin(th*7+L*.8+s[9])),3);
+      const b=(s[9]>3?.3+.85*groove:.7)*shadeN(nx,ny,nz)*1.2;
+      return set(s[0]+s[3]*L+nx*r,s[1]+s[4]*L+ny*r,s[2]+s[5]*L+nz*r,b);}
+    case 1:{const i=Math.floor(R()*LV)*9,cx=leaves[i],cy=leaves[i+1],cz=leaves[i+2],nx=leaves[i+3],ny=leaves[i+4],nz=leaves[i+5];
+      let ax=0,ay=0,az=1;if(Math.abs(nz)>.9){ax=1;az=0;}
+      let ux=ny*az-nz*ay,uy=nz*ax-nx*az,uz=nx*ay-ny*ax;const ul=Math.hypot(ux,uy,uz);ux/=ul;uy/=ul;uz/=ul;
+      const vx=ny*uz-nz*uy,vy=nz*ux-nx*uz,vz=nx*uy-ny*ux;
+      const a=R()*TAU,rr=Math.sqrt(R()),p=Math.cos(a)*rr*leaves[i+6],q=Math.sin(a)*rr*leaves[i+7],edge=rr>.85;
+      return set(cx+ux*p+vx*q,cy+uy*p+vy*q,cz+uz*p+vz*q,(edge?.85:.5)*shadeN(nx,ny,nz)*1.2,5);}
+    case 2:{const t=tips[Math.floor(R()*tips.length)];return set(t[0]+gs()*2,t[1]+gs()*1.1,t[2]+gs()*2,.25+R()*.4,5);}
+    case 3:{const f=fruits[Math.floor(R()*fruits.length)],th=R()*TAU,ph=Math.acos(rn(-1,1)),nx=Math.sin(ph)*Math.cos(th),ny=Math.cos(ph),nz=Math.sin(ph)*Math.sin(th);
+      return set(f[0]+nx*.35,f[1]+ny*.42,f[2]+nz*.35,1.3*shadeN(nx,ny,nz)*1.2,5);}
+    case 4:{const k=Math.floor(R()*10),a=k/10*TAU+.3*Math.sin(k*3),t=R(),d=t*15,th=R()*TAU,r=.9*(1-t)+.1,ang=a+.3*Math.sin(t*4+k);
+      return set(Math.cos(ang)*d+Math.cos(th)*r,-18+.8*(1-t)-.2+Math.sin(th)*r*.6,Math.sin(ang)*d+Math.sin(th)*r,(.35+.35*(1-t))*shadeN(Math.cos(th)*Math.cos(ang),Math.sin(th),Math.cos(th)*Math.sin(ang))*1.2);}
+    case 5:{const r=45*Math.pow(R(),.9),th=R()*TAU,x=Math.cos(th)*r,z=Math.sin(th)*r;
+      if(R()<.3)return set(x,-18,z,.16);
+      const h=rn(.3,1.5)*(1-r/60),s=R(),lx=Math.sin(x*3.1+z)*.5,lz=Math.cos(z*2.7-x)*.5;
+      return set(x+lx*s*s,-18+s*h,z+lz*s*s,.2+.6*s,5);}
+    case 6:{const k=Math.floor(R()*4),a0=k*Math.PI/2+.4,t=R(),d=3+t*42,ang=a0+.25*Math.sin(t*9+k),w=gs()*.5;
+      return set(Math.cos(ang)*d-Math.sin(ang)*w,-17.9,Math.sin(ang)*d+Math.cos(ang)*w,.6+.7*Math.pow(Math.abs(Math.sin(t*80)),6),6);}
+    default:{const [x,y,z]=inBall();return set(x*28,8+y*22,z*28,rn(.6,1.3),8);}
+  }};
+}
+
+
+/* ================= Zamzam: the well, its frame and bucket, the golden basin ================= */
+function genZamzam(){
+  return mix([
+    [.06,()=>light(1.5,2.7,0,1.8,1,-.2)],
+    [.2,()=>{const r=Math.sqrt(R())*20,a=R()*TAU,x=Math.cos(a)*r,z=Math.sin(a)*r;return set(x,0,z,.14+((fr(x/1.2)<.05||fr(z/1.2)<.05)?.2:0)+.05*R());}],
+    [.2,()=>{const a=R()*TAU,q=R(),c=Math.cos(a),s=Math.sin(a);
+      if(q<.45){const y=R()*1.1,row=Math.floor(y/.28),joint=fr(y/.28)<.1||fr(a/TAU*18+(row%2)*.5)<.05;
+        return set(c*1.7,y,s*1.7,(.5+(joint?-.25:.1*R()))*shadeN(c,0,s)*1.2);}
+      if(q<.75){const y=rn(-2,1.1);return set(c*1.3,y,s*1.3,.25*(y+2.2)/3.3);}
+      const r=rn(1.3,1.7);return set(c*r,1.1,s*r,r>1.65||r<1.34?1.3:.7);}],
+    [.07,()=>{const a=R()*TAU,r=Math.sqrt(R())*1.28;return set(Math.cos(a)*r,-1.2,Math.sin(a)*r,.45+.5*Math.pow(Math.abs(Math.sin(r*9)),8),17);}],
+    [.12,()=>{const q=R();
+      if(q<.5){const sx=R()<.5?-2.05:2.05;return rod(sx,0,0,sx,3.4,0,.09,.7);}
+      if(q<.68)return rod(-2.2,3.4,0,2.2,3.4,0,.08,.75);
+      if(q<.8){const a=R()*TAU;return set(.35+Math.cos(a)*.35,3.05+Math.sin(a)*.35,gs()*.03,1.1);}
+      if(q<.9)return rod(.7,3.05,0,.7,1.7,0,.012,.9);
+      return cyl(.7,1.35,0,.22,.35,.8);}],
+    [.16,()=>{const cx=3.6,cz=1.4,q=R();
+      if(q<.55){const a=R()*TAU,cp=R(),sp=Math.sqrt(1-cp*cp);return set(cx+Math.cos(a)*sp*1.05,1.05-cp*.55,cz+Math.sin(a)*sp*1.05,.9+.4*Math.pow(Math.abs(Math.cos(a*12)),20));}
+      if(q<.7)return ring(cx,1.05,cz,1.07,.02,1.7);
+      if(q<.85)return disk(cx,.98,cz,1,1.55);
+      return cyl(cx,0,cz,.35,.5,.6);}],
+    [.13,()=>{const a=R()*TAU,r=Math.sqrt(R())*.8;return set(3.6+Math.cos(a)*r,rn(1.2,12),1.4+Math.sin(a)*r,1.1,8);}],
+    [.12,()=>{const a=rn(-1.2,1.2)-Math.PI/2,rr=15,u=a*rr,y=R()*7,dx=Math.abs(fr(u/3.2)*3.2-1.6);
+      if(archOpen(dx,y,1.15,3.6))return false;
+      return set(Math.cos(a)*rr,y,Math.sin(a)*rr,(archOpen(dx,y,1.27,3.6)?1:.4)*shadeN(-Math.cos(a),0,-Math.sin(a))*1.2);}],
+  ]);
+}
+
+/* ================= Buraq: hoofprints of light, each stride reaching the horizon ================= */
+function genHoof(){
+  const prints=[];for(let k=0;k<14;k++)prints.push([Math.sin(k*.7)*2.5+(k%2?.6:-.6),-(k*k*1.9+k*4)]);
+  const hf=(x,z)=>.6*Math.sin(x*.08+z*.03)+.4*Math.sin(x*.03-z*.05)+.15*Math.sin(x*.4+z*.25);
+  return mix([
+    [.5,()=>terrain(hf,-70,70,-420,25,.75)],
+    [.2,()=>{const P=prints[Math.floor(R()*prints.length)],a=rn(.55,5.75),r=.42+gs()*.03;
+      return set(P[0]+Math.sin(a)*r*.9,hf(P[0],P[1])+.05+R()*.05,P[1]-Math.cos(a)*r,1.9);}],
+    [.06,()=>{const P=prints[Math.floor(R()*prints.length)],[i,j,k]=inBall();return set(P[0]+i*1.2,hf(P[0],P[1])+Math.abs(j)*1.5,P[1]+k*1.2,.5,8);}],
+    [.09,()=>{const k=Math.floor(R()*(prints.length-1)),t=R(),A=prints[k],B=prints[k+1],x=A[0]+(B[0]-A[0])*t,z=A[1]+(B[1]-A[1])*t;
+      return set(x+gs()*.1,hf(x,z)+.1+Math.sin(t*Math.PI)*(1+k*.6),z,.5+.6*(1-t),6);}],
+    [.05,()=>{const x=rn(-140,140);return set(x,Math.pow(R(),2)*6,-430,.35+.3*Math.exp(-x*x/3000));}],
+    [.1,()=>stars(0,0,-150,260)],
+  ]);
+}
+
+/* ================= The red dune ================= */
+function genDune(){
+  const hf=(x,z)=>16*Math.exp(-(x*x/900+z*z/380))+2.2*Math.sin(x*.05+z*.04)+1.2*Math.sin(x*.11-z*.07);
+  const top=hf(0,0);
+  return mix([
+    [.66,()=>{terrain(hf,-90,90,-70,60,1,1.2);o.w*=.7+.3*Math.pow(Math.abs(Math.sin(o.x*1.8+o.z*.7+o.y)),3);return true;}],
+    [.08,()=>{const y=rn(0,45);return set(gs()*.28*(1+y/40),top+y,gs()*.28,1.35*(1-y/60),6);}],
+    [.04,()=>{const a=R()*TAU,r=Math.pow(R(),2)*4;return set(Math.cos(a)*r,top+.1,Math.sin(a)*r,1.2*(1-r/4));}],
+    [.06,()=>{const x=rn(-90,90),z=rn(-70,60);return set(x,hf(x,z)+rn(0,.5),z,.3,7);}],
+    [.16,()=>stars(0,0,0,220)],
+  ]);
+}
+
+/* ================= The western wall of the sanctuary and the ring ================= */
+function genWall(){
+  const hash=n=>fr(Math.sin(n*127.1)*43758.5453);
+  return mix([
+    [.06,()=>light(3.4,1.6,0,1.8,-1,-.3)],
+    [.76,()=>{const x=rn(-14,14),y=R()*14,rh=1.15,row=Math.floor(y/rh),v=y-row*rh;
+      const len=2.4+1.6*hash(row),off=hash(row+7)*len,col=Math.floor((x+off)/len),u=(x+off)-col*len;
+      const m=Math.min(u,len-u,v,rh-v),seed=hash(row*31+col);
+      let z=0,b=.42+.18*seed;
+      if(m<.07){b=.12;z=-.04;}else if(m<.2)b=.32+.1*seed;
+      else{z=.05+.03*seed;b+=.14*Math.pow(Math.abs(Math.sin(x*7+y*5)*Math.sin(x*3-y*9)),3);}
+      return set(x,y,z,b*shadeN(0,0,1)*1.3);}],
+    [.035,()=>{if(R()<.75){const a=R()*TAU,t=R()*TAU,rr=.36+Math.cos(t)*.05;return set(1.5+Math.cos(a)*rr,2.2+Math.sin(a)*rr,.3+Math.sin(t)*.05,1.7);}
+      return set(1.5+rn(-.15,.15),2.62+rn(-.12,.12),.1,1.2);}],
+    [.14,()=>{const x=rn(-14,14),z=rn(0,12);return set(x,0,z,.2+((fr(x/1.3)<.05||fr(z/1.3)<.05)?.18:0));}],
+    [.065,()=>{const P=[[-8,9.3],[4,11.5],[10,6.8],[-11,3.4],[-3,12.6]][Math.floor(R()*5)],[i,j,k]=inBall();
+      return set(P[0]+i*.7,P[1]+j*.5-.2,.25+Math.abs(k)*.5,.4+.3*R(),5);}],
+  ]);
+}
+
+/* ================= The prayer hall: columns, arcades, carpet rows, the mihrab ================= */
+function genHall(){
+  const colX=[-9,-4,4,9],colZ=[];for(let z=-2;z>-44;z-=4.5)colZ.push(z);
+  return mix([
+    [.16,()=>{const r=Math.floor(R()*5),c=Math.floor(R()*9);return light(-8+c*2,-14-r*3.2,0,1.75,0,-1,'stand',1.2);}],
+    [.04,()=>light(0,-38,0,1.85,0,-1,'stand',2)],
+    [.2,()=>{const x=rn(-12,12),z=rn(-44,2),row=fr(-z/1.25);return set(x,0,z,(row<.06?.55:.2)+.05*Math.sin(x*6)*Math.sin(z*6));}],
+    [.2,()=>{const cx=colX[Math.floor(R()*4)],cz=colZ[Math.floor(R()*colZ.length)];
+      return R()<.85?cyl(cx,0,cz,.32,5.6,.7):box(cx,5.6,cz,.5,.35,.5,.8);}],
+    [.24,()=>{const cx=colX[Math.floor(R()*4)],z=rn(-44,-2),y=rn(5.95,9),dx=Math.abs(fr((-z-2)/4.5)*4.5-2.25);
+      if(archOpen(dx,y-5.95,1.9,.4))return false;
+      return set(cx+gs()*.05,y,z,(archOpen(dx,y-5.95,2.05,.4)?1.05:.4)*shadeN(Math.sign(cx),0,0)*1.2);}],
+    [.12,()=>{const q=R(),a=rn(0,Math.PI);
+      if(q<.55){const y=R()*3.6;return set(Math.cos(a)*1.3,y,-44-Math.sin(a)*1.1,1.05+.4*Math.pow(Math.abs(Math.sin(y*6)),6));}
+      if(q<.8){const cp=R(),sp=Math.sqrt(1-cp*cp);return set(Math.cos(a)*sp*1.3,3.6+cp*1.3,-44-Math.sin(a)*sp*1.1,1.2);}
+      const x=rn(-1.8,1.8),y=rn(0,5.4);if(Math.abs(x)<1.35&&y<4.9)return false;return set(x,y,-43.9,1.5);}],
+    [.09,()=>{const x=rn(-12,12),y=R()*9;if(Math.abs(x)<1.9&&y<5.4)return false;return set(x,y,-44,(.3+.25*Math.pow(Math.abs(Math.sin(x*4)*Math.sin(y*4)),4))*1.1);}],
+    [.07,()=>{const cx=[-6.5,0,6.5][Math.floor(R()*3)],cz=colZ[Math.floor(R()*colZ.length)]-2.2;
+      return R()<.3?rod(cx,9,cz,cx,5.6,cz,.01,.5):sphere(cx,5.3,cz,.22,1.9);}],
+    [.08,()=>{const x=rn(-12,12),z=rn(-44,2);return set(x,9,z,.2+(fr(x/3)<.05||fr(z/1.5)<.06?.25:0));}],
+  ]);
+}
+
+/* ================= Two vessels: milk and wine ================= */
+function genVessels(){
+  const jr=y=>.34+.26*Math.sin(Math.PI*Math.min(1,y/1.15))-(y>1.05?.18*(y-1.05)/.35:0);
+  return mix([
+    [.3,()=>box(0,0,0,2.2,.9,.9,.45)],
+    [.24,()=>{const cx=-.6,y0=.9,q=R(),a=R()*TAU,c=Math.cos(a),s=Math.sin(a);
+      if(q<.6){const cp=R(),sp=Math.sqrt(1-cp*cp);return set(cx+c*sp*.42,y0+.62-cp*.34,s*sp*.42,.8*shadeN(c*sp,-cp,s*sp)*1.3+.1);}
+      if(q<.75)return ring(cx,y0+.62,0,.42,.006,1.3);
+      if(q<.88){const y=R()*.28;return set(cx+c*.05,y0+y,s*.05,.7);}
+      return disk(cx,y0+.01,0,.2,.6);}],
+    [.1,()=>disk(-.6,1.5,0,.41,1.75)],
+    [.2,()=>{const cx=.75,y=R()*1.4,a=R()*TAU,c=Math.cos(a),s=Math.sin(a),r=jr(y);
+      return set(cx+c*r,.9+y,s*r,(.3+(y>1.3?.3:0))*shadeN(c,0,s)*1.2);}],
+    [.05,()=>{const [i,j,k]=inBall();return set(-.6+i*.35,1.6+Math.abs(j)*1.6,k*.35,.35+.4*R());}],
+    [.11,()=>{const a=rn(0,Math.PI),y=R()*3.2;if(R()<.7)return set(Math.cos(a)*2.6,y,-.9-Math.sin(a)*1.2,.22+(fr(y/.4)<.08?.15:0));
+      const cp=R(),sp=Math.sqrt(1-cp*cp);return set(Math.cos(a)*sp*2.6,3.2+cp*2.6,-.9-Math.sin(a)*sp*1.2,.25);}],
+  ]);
+}
+
+/* ================= The ascent: a column of light rising from the Rock ================= */
+function genAscent(){
+  const C=[[0,60,0,26],[20,62,-10,18],[-22,58,8,20],[0,110,0,30],[25,112,15,20],[-20,108,-18,22]];
+  return mix([
+    [.12,()=>{const q=R();
+      if(q<.5){const k=Math.floor(R()*8),t=R(),a0=k*Math.PI/4+Math.PI/8,a1=a0+Math.PI/4,y=R()*4.7;
+        return set(Math.cos(a0)*6*(1-t)+Math.cos(a1)*6*t,y,Math.sin(a0)*6*(1-t)+Math.sin(a1)*6*t,(y>4.2||t<.03||t>.97?1:.45)*shadeN(Math.cos(a0+Math.PI/8),0,Math.sin(a0+Math.PI/8))*1.2);}
+      if(q<.62)return cyl(0,4.7,0,3.2,1.9,.55);
+      return dome(0,6.6,0,3.4,1.15,.8);}],
+    [.1,()=>{const x=rn(-40,40),z=rn(-40,40);return set(x,Math.max(Math.abs(x),Math.abs(z))<11?0:-1.5,z,.14+((fr(x/2.5)<.05||fr(z/2.5)<.05)?.2:0));}],
+    [.16,()=>set(gs()*.3,rn(10.5,170),gs()*.3,1.5,6)],
+    [.16,()=>{const t=R(),k=Math.floor(R()*3),a=t*TAU*9+k*TAU/3,r=2.8+t*3;return set(Math.cos(a)*r+gs()*.06,10.5+t*160,Math.sin(a)*r+gs()*.06,.9+.5*(1-t),6);}],
+    [.3,()=>cloud(C,.32)],
+    [.16,()=>{const [i,j,k]=inBall();return set(i*10,100+j*60,k*10,.6,8);}],
+  ]);
+}
+
+/* ================= A gate of heaven above the clouds ================= */
+function genGate(){
+  const W=7,Hh=22,SP=12,r=W*1.3,cx=-W+r,amax=Math.acos(cx/r);
+  const C=[[0,-2,0,30],[30,-3,-10,22],[-30,-3,-6,22],[0,-4,-30,30],[10,-1,20,18],[-14,-2,18,16]];
+  return mix([
+    [.05,()=>R()<.5?light(-1.6,5,-2,1.9,0,-1,'stand',2):light(1.6,5,-2,1.9,0,-1,'stand',1.5)],
+    [.34,()=>cloud(C,.3)],
+    [.2,()=>box((R()<.5?-1:1)*(W+1.8),-2,0,1.8,Hh,1.8,.55)],
+    [.14,()=>{const side=R()<.5?-1:1,a=R()*amax,rr=r+gs()*.35,x=cx-rr*Math.cos(a);
+      return set(side*x,SP+rr*Math.sin(a),gs()*1.2,Math.abs(rr-r)>.3?1.3:.75);}],
+    [.16,()=>{const side=R()<.5?-1:1,t=R(),y=rn(-1.5,SP),len=W*.95;
+      return set(side*W-side*Math.cos(1)*len*t,y,Math.sin(1)*len*t,(.45+(fr(y/1.6)<.08||fr(t*6)<.06?.45:0))*shadeN(0,0,1)*1.2);}],
+    [.1,()=>{const x=rn(-W,W);return set(x,rn(-2,SP+Math.sqrt(Math.max(0,W*W-x*x))*.8),rn(-5,-1),1.2+R()*.3,6);}],
+    [.06,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ================= The first heaven: Adam and the souls on either side ================= */
+function genAdam(){
+  return mix([
+    [.06,()=>light(0,2,0,1.9,0,1,'stand',1.8)],
+    [.42,()=>{const r=9+Math.pow(R(),.8)*22,a=R()*TAU;let b=.28+1.1*Math.pow(Math.abs(Math.sin(r*2.2)),10);if(fr(a/TAU*72)<.04)b+=.4;
+      return set(Math.cos(a)*r,gs()*.05,Math.sin(a)*r,b,2);}],
+    [.18,()=>{const [i,j,k]=inBall();return set(-14+i*6,5+j*4,k*6,1.1+R()*.5,8);}],
+    [.14,()=>{const [i,j,k]=inBall();return set(14+i*6,5+j*4,k*6,.25+R()*.15,8);}],
+    [.1,()=>{const y=R()*9;return set(gs()*.35,y,gs()*.35,1.4*(1-y/14),6);}],
+    [.16,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ================= The seventh heaven: al-Bayt al-Ma'mur and the angels entering it ================= */
+function genMamur(){
+  const S=[];for(let k=0;k<14;k++){const a=k/14*TAU+rn(-.1,.1),e=rn(.05,.6);S.push([Math.cos(a)*Math.cos(e),Math.sin(e),Math.sin(a)*Math.cos(e)]);}
+  return mix([
+    [.05,()=>light(0,4.9,0,1.9,0,1,'sit',1.8)],
+    [.3,()=>{box(0,0,0,4,9,4,.55,0,1.6);if(o.y>6&&o.y<6.7)o.w=Math.min(3.9,o.w*2.4);return true;}],
+    [.3,()=>{const s=S[Math.floor(R()*S.length)],d=rn(6,70),[i,j,k]=inBall();return set(s[0]*d+i*.6,4.5+s[1]*d+j*.6,s[2]*d+k*.6,.9,9);}],
+    [.2,()=>{const r=6+Math.pow(R(),.8)*26,a=R()*TAU;return set(Math.cos(a)*r,0,Math.sin(a)*r,.25+Math.pow(Math.abs(Math.sin(r*2.4)),12),3);}],
+    [.1,()=>cloud([[0,-6,0,30],[20,-7,20,20],[-20,-7,-20,20]],.28)],
+    [.05,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ================= The four rivers rising from the root of the Sidra ================= */
+function genRivers(){
+  const dirs=[[.4,1],[.4+Math.PI/2,1],[.4+Math.PI,0],[.4+Math.PI*1.5,0]];
+  const path=(k,t)=>{const a=dirs[k][0]+.25*Math.sin(t*9+k),d=3+t*70;return [Math.cos(a)*d,Math.sin(a)*d,a];};
+  return mix([
+    [.3,()=>{const k=Math.floor(R()*4),vis=dirs[k][1],t=vis?R():R()*.35,[x,z,a]=path(k,t),w=gs()*(.6+t*1.8);
+      return set(x-Math.sin(a)*w,vis?.02:-t*40,z+Math.cos(a)*w,(vis?.7:.9*(1-t/.35))+.6*Math.pow(Math.abs(Math.sin(t*90)),6),6);}],
+    [.12,()=>{const k=Math.floor(R()*2),t=R(),[x,z,a]=path(k,t),w=(R()<.5?-1:1)*(1.6+t*2.5+R()*1.5);return reed(x-Math.sin(a)*w,z+Math.cos(a)*w,0,rn(.8,1.8),.8);}],
+    [.3,()=>{const x=rn(-80,80),z=rn(-80,80);if(Math.hypot(x,z)<3)return false;const s=R();return set(x,s*rn(.2,.8)*R(),z,.14+.3*s,5);}],
+    [.14,()=>{const q=R();
+      if(q<.5){const a=R()*TAU,y=R()*14,r=2.4+.9*Math.exp(-y*.6)+.15*Math.sin(a*9+y);
+        return set(Math.cos(a)*r,y,Math.sin(a)*r,(.4+.4*Math.pow(Math.abs(Math.sin(a*9+y*.4)),3))*shadeN(Math.cos(a),0,Math.sin(a))*1.2);}
+      const k=Math.floor(R()*9),a=k/9*TAU,t=R(),d=2.5+t*9,th=R()*TAU,r=.8*(1-t)+.1;
+      return set(Math.cos(a)*d+Math.cos(th)*r,Math.sin(th)*r*.5+.3*(1-t),Math.sin(a)*d+Math.sin(th)*r,.5*shadeN(Math.cos(th),Math.sin(th),0)*1.2);}],
+    [.14,()=>stars(0,0,0,230)],
+  ]);
+}
+
+/* ================= Fifty prayers become five ================= */
+function genFifty(){
+  return mix([
+    [.25,()=>{const r=Math.sqrt(R())*24,a=R()*TAU;return set(Math.cos(a)*r,0,Math.sin(a)*r,.12+(fr(r/2)<.04?.25:0)+(fr(a/TAU*50)<.02&&r>8?.15:0));}],
+    [.2,()=>{const a=Math.floor(R()*50)/50*TAU;return sphere(Math.cos(a)*14,.6,Math.sin(a)*14,.22,.55);}],
+    [.05,()=>{const a=Math.floor(R()*50)/50*TAU;return rod(Math.cos(a)*14,0,Math.sin(a)*14,Math.cos(a)*14,.45,Math.sin(a)*14,.03,.4);}],
+    [.2,()=>{const a=Math.floor(R()*5)/5*TAU-Math.PI/2;return sphere(Math.cos(a)*5,1.2,Math.sin(a)*5,.6,1.9);}],
+    [.16,()=>{const a=Math.floor(R()*5)/5*TAU-Math.PI/2,y=rn(1.8,40);return set(Math.cos(a)*5+gs()*.15,y,Math.sin(a)*5+gs()*.15,1.3*(1-y/48),6);}],
+    [.14,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ================= Makkah before dawn ================= */
+function genDawn(){
+  const houses=[];while(houses.length<260){const a=R()*TAU,r=rn(8,60);houses.push([Math.cos(a)*r,Math.sin(a)*r,rn(1,2.4),rn(1,2.4),rn(1.5,4.5)]);}
+  const hf=(x,z)=>{const r=Math.hypot(x,z),a=Math.atan2(z,x);return Math.max(0,(r-55)/40)*(16+8*Math.sin(a*3+.5)+5*Math.sin(a*7+1.3)+2*Math.sin(a*19));};
+  return mix([
+    [.34,()=>{terrain(hf,-150,150,-150,150,1,2.5);o.w*=.7+.7*Math.max(0,-o.x/Math.hypot(o.x,o.z));return true;}],
+    [.26,()=>{const h=houses[Math.floor(R()*houses.length)];return box(h[0],0,h[1],h[2],h[4],h[3],.75);}],
+    [.06,()=>box(0,0,0,1.6,4,1.4,.7)],
+    [.2,()=>{const az=Math.PI+rn(-1,1),e=.3*R()*R(),rr=110;
+      return set(Math.cos(az)*Math.cos(e)*rr,Math.sin(e)*rr,Math.sin(az)*Math.cos(e)*rr,2.4*Math.exp(-e*12)*(1-Math.abs(az-Math.PI)*.8));}],
+    [.14,()=>stars(0,0,0,210,.6)],
+  ]);
+}
+
+/* ================= Bayt al-Maqdis shown to him before Quraysh ================= */
+function genVision(){
+  const crowd=[];for(let i=0;i<(small?260:600);i++){const a=rn(Math.PI,TAU),r=rn(10,22);crowd.push([Math.cos(a)*r*1.3,Math.sin(a)*r,rn(1.55,1.85)]);}
+  return mix([
+    [.05,()=>light(0,3,0,1.85,0,-1,'raise',1.9)],
+    [.18,()=>{const x=rn(-40,40),z=rn(-40,30);return set(x,0,z,.14+((fr(x/1.6)<.04||fr(z/1.6)<.04)?.15:0));}],
+    [.3,()=>{const P=crowd[Math.floor(R()*crowd.length)];return person(P[0],P[1],0,P[2],.75,0,-P[0],-P[1]);}],
+    [.34,()=>{const q=R(),y0=8;
+      if(q<.45){const k=Math.floor(R()*8),t=R(),a0=k*Math.PI/4+Math.PI/8,a1=a0+Math.PI/4,y=R()*2.4;
+        return set(Math.cos(a0)*3.2*(1-t)+Math.cos(a1)*3.2*t,y0+y,Math.sin(a0)*3.2*(1-t)+Math.sin(a1)*3.2*t,(y>2.2||t<.04||t>.96?1.4:.7),2);}
+      if(q<.55){const a=R()*TAU;return set(Math.cos(a)*1.7,y0+rn(2.4,3.4),Math.sin(a)*1.7,.9,2);}
+      if(q<.85){const a=R()*TAU,cp=R(),sp=Math.sqrt(1-cp*cp);return set(Math.cos(a)*sp*1.85,y0+3.4+cp*2.1,Math.sin(a)*sp*1.85,1.1+.6*Math.pow(Math.abs(Math.cos(a*16)),40),2);}
+      const [i,j,k]=inBall();return set(i*6,y0+2+j*4,k*6,.5,2);}],
+    [.1,()=>box(0,0,-34,4,10,3.5,.5)],
+    [.08,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ================= A lamp in its niche: the belief of al-Siddiq ================= */
+function genLamp(){
+  return mix([
+    [.22,()=>{const x=rn(-4,4),y=R()*4.5;if(Math.abs(x)<.55&&y>.9&&y<2.1)return false;
+      return set(x,y,0,(.16+.1*Math.pow(Math.abs(Math.sin(x*5)*Math.sin(y*5)),3))*(1+1.4*Math.exp(-(x*x+(y-1.4)*(y-1.4))*.6)));}],
+    [.12,()=>{const a=rn(0,Math.PI);
+      if(R()<.6){const y=rn(.9,1.8);return set(Math.cos(a)*.55,y,-Math.sin(a)*.35,.5+.9*Math.exp(-(y-1.3)*(y-1.3)*4));}
+      const cp=R(),sp=Math.sqrt(1-cp*cp);return set(Math.cos(a)*sp*.55,1.8+cp*.3,-Math.sin(a)*sp*.35,.8);}],
+    [.03,()=>{const a=rn(0,Math.PI),r=Math.sqrt(R())*.55;return set(Math.cos(a)*r,.9,-Math.sin(a)*r*.64,.6);}],
+    [.14,()=>{if(R()<.8){const a=R()*TAU,cp=rn(-1,1),sp=Math.sqrt(1-cp*cp);return set(Math.cos(a)*sp*.16,1+cp*.05+.05,-.15+Math.sin(a)*sp*.11,.7);}
+      const t=R();return set(.16+t*.1,1.07+t*.02,-.15+gs()*.015,.8);}],
+    [.08,()=>{const [i,j,k]=inBall(),h=Math.abs(j);return set(.27+i*.03*(1-h),1.1+h*.14,-.15+k*.03*(1-h),2.6);}],
+    [.08,()=>{const [i,j,k]=inBall();return set(.27+i*.35,1.3+j*.35,-.15+k*.35,.35);}],
+    [.2,()=>{const x=rn(-4,4),z=rn(0,5);return set(x,0,z,(.1+.06*R())*(1+1.2*Math.exp(-(x*x+z*z)*.2)));}],
+    [.13,()=>{const sd=R()<.5?-4:4,y=R()*4.5,z=rn(0,5);return set(sd,y,z,.1+.05*R());}],
+  ]);
+}
+
+PointStory.run({
+  loop:true,
+  dof:true,           // depth of field: separates the subject from the field of points
+  dofStrength:.22,    // a hint of separation, not a blanket defocus
+  aberration:.022,    // barely-there colour fringing on the defocused edges
+  scrub:2.4,          // heavier scroll lag = calmer camera
+  // scan reveal: hovering opens the cloud onto the reconstructed surface underneath
+  onReady:ctx=>{ window.__pcCtx=ctx; window.scanStory=ScanStory.attach(ctx,{brushRadius:.16}); },
+  hotspots:[
+    {scene:'makkah',at:[4.2,1.5,3.6],kicker:'مكة',title:'الحجر الأسود',
+     body:'الركن الذي يبتدئ منه الطواف وينتهي إليه، يستلمه الطائف أو يشير إليه في كل شوط.'},
+    {scene:'makkah',at:[0,11.4,0],kicker:'مكة',title:'الكعبة المشرفة',
+     body:'أول بيت وُضع للناس، وقبلة الصلاة، رفع قواعدها إبراهيم وإسماعيل عليهما السلام.'},
+    {scene:'aqsa',at:[0,20.8,0],kicker:'بيت المقدس',title:'قبة الصخرة',
+     body:'بُنيت فوق الصخرة في الحرم القدسي سنة ٧٢ﻫ في عهد عبد الملك بن مروان، على مثمَّن الجدران تعلوه قبة مضلَّعة.'}
+  ],
+  scenes:{
+    makkah:{at:[0,0,0],build:genKaaba,edges:E=>{   // exact structure: the Kaaba's 12 edges, its courses, and the mataf
+      E.box(0,0,0,4,10,3.5,4);
+      E.grid(0,.02,0,22,22,11);
+    }},
+    zamzam:{at:[0,0,-150],build:genZamzam,scale:.5},
+    hoof:{at:[0,0,-300],build:genHoof},
+    desert:{at:[0,-6,-520],build:genDesert},
+    dune:{at:[0,0,-700],build:genDune},
+    aqsa:{at:[0,0,-900],build:genAqsa,edges:E=>{   // octagon walls, drum, ribbed dome and finial
+      const R8=10,WH=7.8;
+      for(let i=0;i<8;i++){
+        const a0=i*Math.PI/4+Math.PI/8,a1=a0+Math.PI/4;
+        const x0=Math.cos(a0)*R8,z0=Math.sin(a0)*R8,x1=Math.cos(a1)*R8,z1=Math.sin(a1)*R8;
+        E.line(x0,0,z0,x0,WH,z0);
+        E.line(x0,0,z0,x1,0,z1);
+        E.line(x0,WH,z0,x1,WH,z1);
+        E.line(x0,WH*.55,z0,x1,WH*.55,z1);
+      }
+      E.cyl(0,WH,0,5.3,3.2,16,3);
+      E.dome(0,11,0,5.6,6.4/5.6,16,6);
+      E.line(0,17.4,0,0,19.4,0);
+      E.grid(0,.02,0,17,17,10);
+    }},
+    wall:{at:[0,0,-1020],build:genWall,scale:.5},
+    hall:{at:[0,0,-1120],build:genHall,scale:.7},
+    vessels:{at:[0,0,-1220],build:genVessels,scale:.2},
+    ascent:{at:[0,0,-1350],build:genAscent},
+    gate:{at:[0,190,-1350],build:genGate},
+    adam:{at:[0,260,-1350],build:genAdam},
+    heavens:{at:[0,320,-1350],build:genHeavens},
+    mamur:{at:[0,440,-1350],build:genMamur},
+    sidra:{at:[0,540,-1350],build:genSidra},
+    rivers:{at:[0,620,-1350],build:genRivers},
+    fifty:{at:[0,700,-1350],build:genFifty},
+    dawn:{at:[0,0,200],build:genDawn},
+    vision:{at:[0,0,340],build:genVision},
+    lamp:{at:[0,0,460],build:genLamp,scale:.2},
+  },
+  shots:[
+    {scene:'makkah',cam:[62,40,74],tgt:[0,8,0]},
+    {scene:'makkah',cam:[30,9,34],tgt:[0,6,0]},
+    {scene:'zamzam',cam:[7,4.5,10],tgt:[1.2,1.5,0],grain:.45},
+    {scene:'hoof',cam:[3,2.8,12],tgt:[0,1,-40],grain:.8},
+    {scene:'desert',cam:[20,11,-10],tgt:[-10,6,-65]},
+    {scene:'dune',cam:[34,8,46],tgt:[0,10,0]},
+    {scene:'aqsa',cam:[30,8,34],tgt:[0,7,0]},
+    {scene:'wall',cam:[4,2.6,7],tgt:[1,2.4,0],grain:.45,orbit:.5},
+    {scene:'hall',cam:[0,3,14],tgt:[0,3,-20],grain:.7,orbit:.15},
+    {scene:'vessels',cam:[2.2,1.8,3.6],tgt:[0,1.1,0],grain:.18},
+    {scene:'ascent',cam:[26,14,36],tgt:[0,34,0]},
+    {scene:'gate',cam:[0,6,44],tgt:[0,12,0]},
+    {scene:'adam',cam:[0,7,38],tgt:[0,5,0]},
+    {scene:'heavens',cam:[20,10,20],tgt:[0,16,0]},
+    {scene:'heavens',cam:[-20,34,17],tgt:[0,42,0]},
+    {scene:'mamur',cam:[22,10,30],tgt:[0,6,0]},
+    {scene:'sidra',cam:[34,0,42],tgt:[0,5,0]},
+    {scene:'rivers',cam:[0,14,40],tgt:[0,0,-10]},
+    {scene:'fifty',cam:[0,20,34],tgt:[0,2,0]},
+    {scene:'dawn',cam:[40,22,60],tgt:[0,6,0]},
+    {scene:'vision',cam:[0,6,28],tgt:[0,9,0]},
+    {scene:'lamp',cam:[0,1.6,5],tgt:[0,1.3,0],grain:.16},
+    {scene:'makkah',cam:[75,55,90],tgt:[0,6,0]},
+  ]
+});
+})();
+</script>

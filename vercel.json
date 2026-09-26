@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "cleanUrls": true,
+  "redirects": [
+    { "source": "/", "destination": "/stories/isra-miraj.html", "permanent": false },
+    { "source": "/isra-miraj", "destination": "/stories/isra-miraj.html", "permanent": false },
+    { "source": "/musa-firaun", "destination": "/stories/musa-firaun.html", "permanent": false }
+  ],
+  "headers": [
+    {
+      "source": "/stories/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ]
+}

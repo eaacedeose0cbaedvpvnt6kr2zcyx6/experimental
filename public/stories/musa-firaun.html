@@ -1,0 +1,784 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>موسى وفرعون</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* One night look on purpose: near-black ground, muted particle light, warm highlights only. */
+:root{
+  --bg:#050505;
+  --ink:#F1ECE3;
+  --dim:rgba(241,236,227,.64);
+  --faint:rgba(241,236,227,.2);
+  --warm:#E8D6BA;
+  color-scheme:dark;
+}
+html{background:var(--bg);direction:rtl}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;font-weight:300;
+  overflow-x:hidden;
+}
+#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
+.track{height:2400vh;position:relative}
+
+/* ---------- captions: only one is ever visible, so nothing can overlap ---------- */
+.captions{position:fixed;inset:0;pointer-events:none;z-index:1}
+.cap{position:absolute;visibility:hidden;opacity:0}
+.cap.on{visibility:visible;opacity:1}
+.cap--center{
+  inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  text-align:center;gap:.9rem;
+  padding:calc(12vh + env(safe-area-inset-top,0px)) 24px 0;
+}
+.cap--end{justify-content:center;padding-top:0}
+.cap--side{
+  right:max(7vw,24px);
+  bottom:calc(9vh + env(safe-area-inset-bottom,0px));
+  width:min(30rem,80vw);
+  display:flex;flex-direction:column;gap:.55rem;
+}
+
+/* typewriter: an invisible full copy reserves the space, the ink layer writes over it */
+.tw{display:grid;margin:0}
+.tw>span{grid-area:1/1}
+.gh{color:transparent}
+.tx .w{display:inline-block;transform-origin:50% 90%;animation:wordIn .9s cubic-bezier(.16,.7,.2,1) both}
+@keyframes wordIn{
+  from{opacity:0;transform:perspective(520px) rotateX(-72deg) translateZ(-26px) translateY(.35em);filter:blur(4px)}
+  to{opacity:1;transform:none;filter:none}
+}
+.pen{
+  display:inline-block;width:.26em;height:.26em;border-radius:50%;
+  margin-inline-start:.12em;vertical-align:middle;opacity:0;
+  background:var(--warm);box-shadow:0 0 6px 1px rgba(232,214,186,.7),0 0 16px 3px rgba(232,214,186,.25);
+}
+.live .pen{opacity:1}
+.live .tx{text-shadow:0 0 12px rgba(232,214,186,.28)}
+.done .tx{transition:text-shadow 1.4s ease-out}
+/* headings are drawn in 3D particles on the canvas; the text here only holds the layout and stays readable to screen readers */
+.tw3d{text-wrap:wrap}
+
+.kicker{font-size:.9rem;color:var(--dim);font-weight:400}
+.hero-title{
+  font-family:Amiri,"Traditional Arabic",serif;font-weight:700;
+  font-size:clamp(3rem,10vw,7.4rem);line-height:1.15;
+}
+.verse{
+  font-family:Amiri,"Traditional Arabic",serif;
+  font-size:clamp(1.12rem,2.2vw,1.5rem);line-height:2.1;max-width:34em;
+}
+.ref{font-size:.82rem;color:var(--dim)}
+.hint{font-size:.88rem;color:var(--dim);margin-top:.6rem}
+.cap h2{
+  font-family:Amiri,"Traditional Arabic",serif;font-weight:700;
+  font-size:clamp(2rem,4.4vw,3.2rem);line-height:1.25;
+}
+.cap p{font-size:clamp(1rem,1.45vw,1.12rem);line-height:2;color:var(--dim)}
+.cap .verse-sm{font-family:Amiri,serif;font-size:clamp(1.15rem,2vw,1.4rem);line-height:2;color:var(--ink)}
+.again{
+  pointer-events:auto;margin-top:1.2rem;
+  appearance:none;background:transparent;color:var(--ink);
+  border:1px solid var(--faint);border-radius:999px;padding:.6rem 1.4rem;
+  font:inherit;font-size:.92rem;cursor:pointer;transition:border-color .3s,box-shadow .3s;
+}
+.again:hover{border-color:var(--warm);box-shadow:0 0 18px -6px var(--warm)}
+.again:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+
+/* ---------- chapter rail ---------- */
+.rail{
+  position:fixed;left:max(3vw,16px);top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:1.4rem;z-index:2;direction:ltr;
+}
+.rail::before,.rail .prog{content:"";position:absolute;left:4px;top:6px;bottom:6px;width:1px;background:var(--faint)}
+.rail .prog{background:var(--ink);transform-origin:top;transform:scaleY(0)}
+.rail button{
+  appearance:none;background:none;border:0;padding:2px 4px 2px 0;margin:0;cursor:pointer;
+  display:flex;align-items:center;gap:.8rem;color:var(--dim);
+  font:inherit;font-size:.84rem;border-radius:4px;position:relative;
+}
+.rail .dot{
+  width:9px;height:9px;border-radius:50%;border:1px solid var(--ink);
+  background:var(--bg);transition:background .5s,box-shadow .5s;flex:none;
+}
+.rail button[aria-current="step"]{color:var(--ink)}
+.rail button[aria-current="step"] .dot{background:var(--warm);border-color:var(--warm);box-shadow:0 0 10px rgba(232,214,186,.55)}
+.rail button:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.nogl{position:fixed;inset:0;display:none;place-items:center;text-align:center;padding:24px;font-size:1.1rem}
+
+@media (max-width:760px){
+  .rail .label{display:none}
+  .cap--side{right:18px;left:48px;width:auto;bottom:calc(7vh + env(safe-area-inset-bottom,0px))}
+  .cap--center{padding-inline:44px 20px}
+}
+@media (prefers-reduced-motion: reduce){.tx .w{animation:none}}
+</style>
+
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<main class="captions">
+  <section class="cap cap--center">
+    <h1 class="tw tw3d hero-title" data-tw="7">موسى وفرعون</h1>
+    <p class="tw verse" data-tw="24">نَتْلُو عَلَيْكَ مِن نَّبَإِ مُوسَىٰ وَفِرْعَوْنَ بِالْحَقِّ لِقَوْمٍ يُؤْمِنُونَ</p>
+    <p class="tw ref" data-tw="30">القصص · ٣</p>
+  </section>
+
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠١ · مصر</p>
+    <h2 class="tw tw3d" data-tw="11">علا في الأرض</h2>
+    <p class="tw verse-sm" data-tw="20">إِنَّ فِرْعَوْنَ عَلَا فِي الْأَرْضِ وَجَعَلَ أَهْلَهَا شِيَعًا</p>
+    <p class="tw" data-tw="34">فرّق أهل مصر طوائف، واستضعف بني إسرائيل؛ يذبّح أبناءهم ويستحيي نساءهم، إنه كان من المفسدين.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٢ · مصر</p>
+    <h2 class="tw tw3d" data-tw="11">وعدٌ للمستضعفين</h2>
+    <p class="tw verse-sm" data-tw="20">وَنُرِيدُ أَن نَّمُنَّ عَلَى الَّذِينَ اسْتُضْعِفُوا فِي الْأَرْضِ وَنَجْعَلَهُمْ أَئِمَّةً وَنَجْعَلَهُمُ الْوَارِثِينَ</p>
+    <p class="tw" data-tw="34">كان فرعون يحذر مولودًا من بني إسرائيل، والله يريد أن يُريه منهم ما كان يحذر.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٣ · الميلاد</p>
+    <h2 class="tw tw3d" data-tw="11">وحيٌ إلى أم موسى</h2>
+    <p class="tw verse-sm" data-tw="20">وَأَوْحَيْنَا إِلَىٰ أُمِّ مُوسَىٰ أَنْ أَرْضِعِيهِ ۖ فَإِذَا خِفْتِ عَلَيْهِ فَأَلْقِيهِ فِي الْيَمِّ وَلَا تَخَافِي وَلَا تَحْزَنِي</p>
+    <p class="tw" data-tw="34">وُلد موسى في زمن يُقتل فيه المواليد، فجاء أمَّه وعدٌ من الله: إنا رادّوه إليك وجاعلوه من المرسلين.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٤ · النيل</p>
+    <h2 class="tw tw3d" data-tw="11">التابوت في اليمّ</h2>
+    <p class="tw verse-sm" data-tw="20">أَنِ اقْذِفِيهِ فِي التَّابُوتِ فَاقْذِفِيهِ فِي الْيَمِّ فَلْيُلْقِهِ الْيَمُّ بِالسَّاحِلِ</p>
+    <p class="tw" data-tw="34">وضعته في التابوت وألقته في النيل، وقالت لأخته: قُصّيه، فبصُرت به عن جُنُبٍ وهم لا يشعرون.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٥ · قصر فرعون</p>
+    <h2 class="tw tw3d" data-tw="11">قرّة عين</h2>
+    <p class="tw verse-sm" data-tw="20">وَقَالَتِ امْرَأَتُ فِرْعَوْنَ قُرَّتُ عَيْنٍ لِّي وَلَكَ ۖ لَا تَقْتُلُوهُ عَسَىٰ أَن يَنفَعَنَا أَوْ نَتَّخِذَهُ وَلَدًا</p>
+    <p class="tw" data-tw="34">التقطه آل فرعون من الماء، فنشأ الطفل الذي يحذرونه في بيت فرعون نفسه.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٦ · الميلاد</p>
+    <h2 class="tw tw3d" data-tw="11">إلى صدر أمه</h2>
+    <p class="tw verse-sm" data-tw="20">فَرَدَدْنَاهُ إِلَىٰ أُمِّهِ كَيْ تَقَرَّ عَيْنُهَا وَلَا تَحْزَنَ وَلِتَعْلَمَ أَنَّ وَعْدَ اللَّهِ حَقٌّ</p>
+    <p class="tw" data-tw="34">حرّم الله عليه المراضع، فقالت أخته: هل أدلّكم على أهل بيتٍ يكفلونه لكم؟ فعاد إلى أمه.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٧ · المدينة</p>
+    <h2 class="tw tw3d" data-tw="11">على حين غفلة</h2>
+    <p class="tw verse-sm" data-tw="20">قَالَ رَبِّ إِنِّي ظَلَمْتُ نَفْسِي فَاغْفِرْ لِي فَغَفَرَ لَهُ</p>
+    <p class="tw" data-tw="34">بلغ أشدّه، ودخل المدينة فوجد رجلين يقتتلان، فاستغاثه الذي من شيعته، فوكز الآخر فقضى عليه، فندم واستغفر.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٨ · المدينة</p>
+    <h2 class="tw tw3d" data-tw="11">رجلٌ يسعى</h2>
+    <p class="tw verse-sm" data-tw="20">وَجَاءَ رَجُلٌ مِّنْ أَقْصَى الْمَدِينَةِ يَسْعَىٰ قَالَ يَا مُوسَىٰ إِنَّ الْمَلَأَ يَأْتَمِرُونَ بِكَ لِيَقْتُلُوكَ</p>
+    <p class="tw" data-tw="34">جاءه النذير من أقصى المدينة: فاخرج، إني لك من الناصحين.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٠٩ · إلى مدين</p>
+    <h2 class="tw tw3d" data-tw="11">خائفًا يترقّب</h2>
+    <p class="tw verse-sm" data-tw="20">وَلَمَّا تَوَجَّهَ تِلْقَاءَ مَدْيَنَ قَالَ عَسَىٰ رَبِّي أَن يَهْدِيَنِي سَوَاءَ السَّبِيلِ</p>
+    <p class="tw" data-tw="34">خرج وحده في الصحراء نحو مدين، بلا زادٍ ولا رفيق، وقال: ربِّ نجّني من القوم الظالمين.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٠ · مدين</p>
+    <h2 class="tw tw3d" data-tw="11">عند ماء مدين</h2>
+    <p class="tw verse-sm" data-tw="20">فَسَقَىٰ لَهُمَا ثُمَّ تَوَلَّىٰ إِلَى الظِّلِّ فَقَالَ رَبِّ إِنِّي لِمَا أَنزَلْتَ إِلَيَّ مِنْ خَيْرٍ فَقِيرٌ</p>
+    <p class="tw" data-tw="34">وجد على الماء جماعةً من الناس يسقون، وامرأتين تنتظران حتى ينصرف الرعاء، فسقى لهما.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١١ · مدين</p>
+    <h2 class="tw tw3d" data-tw="11">القويّ الأمين</h2>
+    <p class="tw verse-sm" data-tw="20">إِنَّ خَيْرَ مَنِ اسْتَأْجَرْتَ الْقَوِيُّ الْأَمِينُ</p>
+    <p class="tw" data-tw="34">زوّجه الشيخ إحدى ابنتيه على أن يرعى غنمه ثماني سنين أو عشرًا. قال ابن عباس: قضى أكثرهما وأطيبهما. رواه البخاري.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٢ · الطور</p>
+    <h2 class="tw tw3d" data-tw="11">نارٌ في الليل</h2>
+    <p class="tw verse-sm" data-tw="20">إِذْ رَأَىٰ نَارًا فَقَالَ لِأَهْلِهِ امْكُثُوا إِنِّي آنَسْتُ نَارًا لَّعَلِّي آتِيكُم مِّنْهَا بِقَبَسٍ أَوْ أَجِدُ عَلَى النَّارِ هُدًى</p>
+    <p class="tw" data-tw="34">سار بأهله عائدًا نحو مصر في ليلةٍ باردة، فرأى نارًا في جانب الطور.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٣ · الوادي المقدّس</p>
+    <h2 class="tw tw3d" data-tw="11">إني أنا ربك</h2>
+    <p class="tw verse-sm" data-tw="20">إِنِّي أَنَا رَبُّكَ فَاخْلَعْ نَعْلَيْكَ ۖ إِنَّكَ بِالْوَادِ الْمُقَدَّسِ طُوًى</p>
+    <p class="tw" data-tw="34">نودي من شاطئ الوادي الأيمن في البقعة المباركة من الشجرة، وكلّمه الله تكليمًا.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٤ · الوادي المقدّس</p>
+    <h2 class="tw tw3d" data-tw="11">العصا واليد</h2>
+    <p class="tw verse-sm" data-tw="20">فَأَلْقَاهَا فَإِذَا هِيَ حَيَّةٌ تَسْعَىٰ</p>
+    <p class="tw" data-tw="34">ثم أُمر أن يضمّ يده إلى جناحه فتخرج بيضاء من غير سوء؛ آيتان يذهب بهما إلى فرعون وملئه.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٥ · الرسالة</p>
+    <h2 class="tw tw3d" data-tw="11">قولًا ليّنًا</h2>
+    <p class="tw verse-sm" data-tw="20">اذْهَبَا إِلَىٰ فِرْعَوْنَ إِنَّهُ طَغَىٰ ۝ فَقُولَا لَهُ قَوْلًا لَّيِّنًا لَّعَلَّهُ يَتَذَكَّرُ أَوْ يَخْشَىٰ</p>
+    <p class="tw" data-tw="34">سأل ربه أن يجعل معه أخاه هارون وزيرًا، فدخلا على فرعون. قال فرعون: وما رب العالمين؟ قال: رب السماوات والأرض وما بينهما.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٦ · الرسالة</p>
+    <h2 class="tw tw3d" data-tw="11">أنا ربكم الأعلى</h2>
+    <p class="tw verse-sm" data-tw="20">فَأَلْقَىٰ عَصَاهُ فَإِذَا هِيَ ثُعْبَانٌ مُّبِينٌ ۝ وَنَزَعَ يَدَهُ فَإِذَا هِيَ بَيْضَاءُ لِلنَّاظِرِينَ</p>
+    <p class="tw" data-tw="34">رأى فرعون الآيات فكذّب وعصى، وحشر قومه فنادى: أنا ربكم الأعلى. وقال الملأ: إن هذا لساحرٌ عليم.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٧ · السحرة</p>
+    <h2 class="tw tw3d" data-tw="11">يوم الزينة</h2>
+    <p class="tw verse-sm" data-tw="20">فَإِذَا حِبَالُهُمْ وَعِصِيُّهُمْ يُخَيَّلُ إِلَيْهِ مِن سِحْرِهِمْ أَنَّهَا تَسْعَىٰ</p>
+    <p class="tw" data-tw="34">جمع فرعون السحرة من المدائن، وحُشر الناس ضحى يوم الزينة، فألقى السحرة حبالهم وعصيّهم.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٨ · السحرة</p>
+    <h2 class="tw tw3d" data-tw="11">تلقف ما صنعوا</h2>
+    <p class="tw verse-sm" data-tw="20">فَأُلْقِيَ السَّحَرَةُ سُجَّدًا قَالُوا آمَنَّا بِرَبِّ هَارُونَ وَمُوسَىٰ</p>
+    <p class="tw" data-tw="34">ألقى موسى عصاه فابتلعت ما صنعوا، فعرف السحرة أنه ليس بسحر، فخرّوا ساجدين.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">١٩ · السحرة</p>
+    <h2 class="tw tw3d" data-tw="11">جذوع النخل</h2>
+    <p class="tw verse-sm" data-tw="20">فَاقْضِ مَا أَنتَ قَاضٍ ۖ إِنَّمَا تَقْضِي هَٰذِهِ الْحَيَاةَ الدُّنْيَا</p>
+    <p class="tw" data-tw="34">توعّدهم فرعون بتقطيع الأيدي والأرجل والصلب في جذوع النخل، فثبتوا. قال ابن عباس: كانوا أول النهار سحرة، وآخره شهداء بررة.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢٠ · الآيات</p>
+    <h2 class="tw tw3d" data-tw="11">آياتٌ مفصّلات</h2>
+    <p class="tw verse-sm" data-tw="20">فَأَرْسَلْنَا عَلَيْهِمُ الطُّوفَانَ وَالْجَرَادَ وَالْقُمَّلَ وَالضَّفَادِعَ وَالدَّمَ آيَاتٍ مُّفَصَّلَاتٍ</p>
+    <p class="tw" data-tw="34">كلما وقع عليهم العذاب قالوا: ادعُ لنا ربك لئن كشفت عنا لنؤمنن لك، فلما كُشف عنهم نكثوا.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢١ · الخروج</p>
+    <h2 class="tw tw3d" data-tw="11">أسرِ بعبادي</h2>
+    <p class="tw verse-sm" data-tw="20">وَأَوْحَيْنَا إِلَىٰ مُوسَىٰ أَنْ أَسْرِ بِعِبَادِي إِنَّكُم مُّتَّبَعُونَ</p>
+    <p class="tw" data-tw="34">خرج بنو إسرائيل ليلًا، فأرسل فرعون في المدائن حاشرين، فأتبعوهم مشرقين.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢٢ · الخروج</p>
+    <h2 class="tw tw3d" data-tw="11">كلّا إن معي ربي</h2>
+    <p class="tw verse-sm" data-tw="20">قَالَ أَصْحَابُ مُوسَىٰ إِنَّا لَمُدْرَكُونَ ۝ قَالَ كَلَّا ۖ إِنَّ مَعِيَ رَبِّي سَيَهْدِينِ</p>
+    <p class="tw" data-tw="34">البحر أمامهم، وجنود فرعون خلفهم، ولا طريق في ظاهر الأمر.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢٣ · البحر</p>
+    <h2 class="tw tw3d" data-tw="11">كالطود العظيم</h2>
+    <p class="tw verse-sm" data-tw="20">فَأَوْحَيْنَا إِلَىٰ مُوسَىٰ أَنِ اضْرِب بِّعَصَاكَ الْبَحْرَ ۖ فَانفَلَقَ فَكَانَ كُلُّ فِرْقٍ كَالطَّوْدِ الْعَظِيمِ</p>
+    <p class="tw" data-tw="34">صار البحر طريقًا يبسًا، لا يخاف دركًا ولا يخشى، فعبر موسى ومن معه أجمعون.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢٤ · البحر</p>
+    <h2 class="tw tw3d" data-tw="11">آلآن؟</h2>
+    <p class="tw verse-sm" data-tw="20">حَتَّىٰ إِذَا أَدْرَكَهُ الْغَرَقُ قَالَ آمَنتُ أَنَّهُ لَا إِلَٰهَ إِلَّا الَّذِي آمَنَتْ بِهِ بَنُو إِسْرَائِيلَ</p>
+    <p class="tw" data-tw="34">دخل فرعون وجنوده خلفهم فأطبق عليهم البحر، فقيل له: آلآن وقد عصيت قبلُ وكنت من المفسدين؟</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢٥ · العبرة</p>
+    <h2 class="tw tw3d" data-tw="11">آيةٌ لمن خلفك</h2>
+    <p class="tw verse-sm" data-tw="20">فَالْيَوْمَ نُنَجِّيكَ بِبَدَنِكَ لِتَكُونَ لِمَنْ خَلْفَكَ آيَةً</p>
+    <p class="tw" data-tw="34">وأورث الله القوم الذين كانوا يُستضعفون مشارق الأرض ومغاربها، ودمّر ما كان يصنع فرعون وقومه.</p>
+  </section>
+  <section class="cap cap--side">
+    <p class="tw kicker" data-tw="30">٢٦ · العبرة</p>
+    <h2 class="tw tw3d" data-tw="11">يوم عاشوراء</h2>
+    <p class="tw" data-tw="34">قدم النبي ﷺ المدينة فرأى اليهود تصوم يوم عاشوراء، فقالوا: هذا يومٌ نجّى الله فيه بني إسرائيل من عدوهم فصامه موسى. فقال ﷺ: «فأنا أحقّ بموسى منكم»، فصامه وأمر بصيامه. متفق عليه.</p>
+  </section>
+  <section class="cap cap--center cap--end">
+    <p class="tw tw3d verse" data-tw="12" style="font-size:clamp(1.8rem,4.4vw,3rem);font-weight:700">إِنَّ فِي ذَٰلِكَ لَعِبْرَةً لِّمَن يَخْشَىٰ</p>
+    <p class="tw ref" data-tw="30">النازعات · ٢٦</p>
+    <button class="again" id="again" type="button">من البداية</button>
+  </section>
+</main>
+
+<nav class="rail" aria-label="فصول القصة">
+  <span class="prog" id="prog"></span>
+  <button data-go="0" type="button"><span class="dot"></span><span class="label" dir="rtl">مصر</span></button>
+  <button data-go="3" type="button"><span class="dot"></span><span class="label" dir="rtl">الميلاد</span></button>
+  <button data-go="7" type="button"><span class="dot"></span><span class="label" dir="rtl">المدينة</span></button>
+  <button data-go="9" type="button"><span class="dot"></span><span class="label" dir="rtl">مدين</span></button>
+  <button data-go="12" type="button"><span class="dot"></span><span class="label" dir="rtl">الرسالة</span></button>
+  <button data-go="17" type="button"><span class="dot"></span><span class="label" dir="rtl">السحرة</span></button>
+  <button data-go="21" type="button"><span class="dot"></span><span class="label" dir="rtl">الخروج</span></button>
+  <button data-go="25" type="button"><span class="dot"></span><span class="label" dir="rtl">العبرة</span></button>
+</nav>
+
+<div class="track" aria-hidden="true"></div>
+<div class="nogl" id="nogl">يحتاج هذا العرض إلى متصفح يدعم WebGL.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
+<script src="engine.js"></script>
+<script>
+(function(){
+const {figure,light,o,R,rn,fr,gs,TAU,smooth,inBall,archOpen,set,shadeN,box,cyl,dome,sphere,ellip,disk,ring,rod,person,prostrate,sheep,palm,reed,flame,stars,cloud,terrain,pyramid,column,tree,mix}=PointStory.H;
+const small=matchMedia('(max-width: 760px)').matches;
+// change the brightness of the point just placed, keeping its motion class
+const tw=f=>{const m=Math.floor(o.w/4);o.w=Math.min(3.9,Math.max(0,f(o.w-4*m)))+4*m;return true;};
+const pick=a=>a[Math.floor(R()*a.length)];
+const water=(x0,x1,z0,z1,y,glX,m)=>{const x=rn(x0,x1),z=rn(z0,z1);
+  return set(x,y,z,.2+.9*Math.pow(Math.abs(Math.sin(x*.8+z*2.1)),10)*Math.exp(-Math.pow(x-glX,2)/500),m===undefined?17:m);};
+const ground=(x0,x1,z0,z1,y,b,grid)=>{const x=rn(x0,x1),z=rn(z0,z1);
+  return set(x,y,z,b+(grid&&(fr(x/grid)<.04||fr(z/grid)<.04)?.16:0)+.04*R());};
+
+/* ---------- Egypt by night: the pyramids, the Nile and its palms ---------- */
+function genEgypt(){
+  const palms=[];for(let i=0;i<46;i++){const near=R()<.5,x=rn(-100,100);palms.push([x,near?rn(12,18):rn(38,46),0,rn(7,11),rn(-.2,.2),rn(-.2,.2)]);}
+  const hf=(x,z)=>Math.max(0,.8*Math.sin(x*.05+z*.04)+.5*Math.sin(x*.13-z*.07)+(20-z)*.02);
+  return mix([
+    [.22,()=>pyramid(-30,0,-60,14,18,1.1)],
+    [.16,()=>pyramid(-2,0,-82,12,16,1.05)],
+    [.07,()=>pyramid(20,0,-96,6,8,1)],
+    [.19,()=>terrain(hf,-130,130,-150,20,.7)],
+    [.14,()=>water(-130,130,20,36,-.2,12)],
+    [.04,()=>ground(-130,130,36,70,0,.16)],
+    [.12,()=>palm(pick(palms))],
+    [.06,()=>stars(0,0,-30,260)],
+  ]);
+}
+
+/* ---------- The temple of the tyrant: pylon, obelisks, a hall of papyrus columns ---------- */
+function genTemple(){
+  const cols=[];for(let i=0;i<4;i++)for(let j=0;j<6;j++)cols.push([(i-1.5)*6,-10-j*6]);
+  return mix([
+    [.07,()=>{const i=Math.floor(R()*34),x=i<6?(i%2?-3:3):((i*7.3)%30)-15,z=i<6?3.5-Math.floor(i/2)*1.4:-8-((i*3.7)%26);return figure(x,z,0,rn(1.65,1.85),.8,0,i<6?0:(i%3)-1,1,i<6?'stand':'walk');}],
+    [.34,()=>{const c=pick(cols);return column(c[0],0,c[1],1.2,14,.7);}],
+    [.08,()=>box((Math.floor(R()*4)-1.5)*6,14,-25,1.3,1.2,17,.5)],
+    [.18,()=>{const side=R()<.5?-1:1,y=R()*20,tp=1-y/20*.18,hw=7*tp,cx=side*11,q=R();
+      if(q<.6){const x=cx+rn(-hw,hw);let b=.5+(fr(y/1.6)<.06?.25:0);if(y>4&&y<17)b+=.28*Math.pow(Math.abs(Math.sin(x*2.3)*Math.sin(y*3.1)),3);return set(x,y,2.5*tp,b*shadeN(0,.1,1)*1.2);}
+      if(q<.85)return set(cx+side*hw,y,rn(-2.5,2.5)*tp,.45*shadeN(side,.1,0)*1.2);
+      return set(cx+rn(-hw,hw),20,rn(-2.1,2.1),.6);}],
+    [.06,()=>{const x=rn(-4,4),y=rn(0,16);if(Math.abs(x)<2.6&&y<12)return false;return set(x,y,2,.5+(y>15?.4:0));}],
+    [.1,()=>{const cx=(R()<.5?-1:1)*18,z=12;
+      if(R()<.1)return pyramid(cx,22.5,z,1.1*.55,1.5,1.3);
+      const y=R()*22.5,s=1.1*(1-y/24*.45),f=Math.floor(R()*4),u=rn(-1,1)*s,nx=[1,0,-1,0][f],nz=[0,1,0,-1][f];
+      let b=.6;if(fr(y/1.2)<.5)b+=.35*Math.pow(Math.abs(Math.sin(u*9)*Math.sin(y*7)),2);
+      return set(cx+nx*s-nz*u,y,z+nz*s+nx*u,b*shadeN(nx,0,nz)*1.2);}],
+    [.16,()=>ground(-40,40,-50,30,0,.14,2)],
+    [.08,()=>stars(0,0,-10,230)],
+  ]);
+}
+
+/* ---------- A mudbrick house by the river, one window lit ---------- */
+function genHouse(){
+  const palms=[[-9,-4,0,8,.15,0],[-12,2,0,9.5,-.1,.1],[8,-6,0,7,.1,-.1],[14,-2,0,10,-.15,0]];
+  const reeds=[];for(let i=0;i<140;i++)reeds.push([rn(-30,30),rn(8.5,11.5),rn(1,2.4)]);
+  return mix([
+    [.03,()=>figure(-2,1.5,0,1.65,.85,0,0,1,'stand')],
+    [.3,()=>{box(0,0,-2,4,4.2,3,.55);
+      if(Math.abs(o.z-1)<.01){if(o.x>1&&o.x<2.2&&o.y>2&&o.y<3)return tw(()=>1.9);if(o.x>-2.6&&o.x<-1.4&&o.y<2.4)return tw(()=>.06);}
+      return tw(b=>b*(fr(o.y/.35)<.12?.7:1)*(fr(o.x/.7+Math.floor(o.y/.35)*.5)<.06?.8:1));}],
+    [.05,()=>{const t=R()*28,p=t<8?[-4+t,-5]:t<14?[4,-5+(t-8)]:t<22?[4-(t-14),1]:[-4,1-(t-22)];return set(p[0],4.2+R()*.45,p[1],.7);}],
+    [.05,()=>{const [i,j,k]=inBall();return set(1.6+i*1.5,2.5+j*1.2,1.4+Math.abs(k)*2,.3);}],
+    [.16,()=>ground(-30,30,-12,8,0,.16)],
+    [.14,()=>water(-40,40,8,34,-.3,1.6)],
+    [.1,()=>{const r=pick(reeds);return reed(r[0],r[1],-.2,r[2]);}],
+    [.12,()=>palm(pick(palms))],
+    [.08,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ---------- The chest carried on the Nile between the papyrus ---------- */
+function genChest(){
+  const reeds=[];for(let i=0;i<300;i++)reeds.push([rn(-60,60),R()<.5?rn(-16,-7):rn(7,16),rn(1.5,3)]);
+  return mix([
+    [.03,()=>figure(-6,8.6,0,1.45,.8,0,.3,-1,'stand')],
+    [.4,()=>water(-70,70,-8,8,0,2.5)],
+    [.22,()=>{const r=pick(reeds);return reed(r[0],r[1],0,r[2],.9);}],
+    [.14,()=>{box(0,.05,0,.7,.45,.42,.75,17,1.4);return tw(b=>b*(fr((o.x+.7)/.28)<.1?.55:1)*(o.y>.49?1.15:1));}],
+    [.02,()=>rod(-.7,.52,0,.7,.52,0,.02,1.1,17)],
+    [.12,()=>{const x=rn(-70,70),z=R()<.5?rn(-24,-8):rn(8,24),h=Math.max(0,(Math.abs(z)-8)*.12);return set(x,h,z,.18+.04*R());}],
+    [.1,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ---------- The palace garden: a pool with steps, a colonnade, palms ---------- */
+function genGarden(){
+  const palms=[];for(let i=0;i<10;i++){const a=i/10*TAU;palms.push([Math.cos(a)*17,Math.sin(a)*12+2,0,rn(8,10),rn(-.1,.1),rn(-.1,.1)]);}
+  return mix([
+    [.05,()=>{const i=Math.floor(R()*4);return figure(-1.5+i*1.1,6.4+(i%2)*.5,0,1.7,.85,0,0,-1,'stand');}],
+    [.2,()=>{const x=rn(-10,10),z=rn(-5,5);return set(x,-.6,z,.2+.7*Math.pow(Math.abs(Math.sin(x*1.2+z*2.3)),12),17);}],
+    [.05,()=>{const a=R()*TAU;return disk(rn(-8,8),-.55,rn(-4,4),.35,.5,17);}],
+    [.08,()=>{const t=R()*60,p=t<20?[-10+t,-5]:t<30?[10,-5+(t-20)]:t<50?[10-(t-30),5]:[-10,5-(t-50)];return set(p[0]+gs()*.2,rn(-.6,0),p[1]+gs()*.2,.8);}],
+    [.07,()=>{const st=Math.floor(R()*3);return set(rn(-3,3),-.2*st,5+st*.5+R()*.5,R()<.2?.9:.45);}],
+    [.24,()=>{const k=Math.floor(R()*10),x=-18+k*4;return R()<.85?column(x,0,-16,.6,8,.7):box(0,8,-16,20,.8,1.2,.55);}],
+    [.08,()=>box(0,0,-19,20,9,1,.35)],
+    [.12,()=>palm(pick(palms))],
+    [.1,()=>{const x=rn(-26,26),z=rn(-20,20);if(Math.abs(x)<10.3&&Math.abs(z)<5.3)return false;return set(x,0,z,.16+((fr(x/1.5)<.04||fr(z/1.5)<.04)?.14:0));}],
+    [.03,()=>{box(2,-.35,5.6,.5,.35,.3,.8,17,1.3);return true;}],
+    [.03,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ---------- Back to his mother: a room, a cradle, a lamp, moonlight ---------- */
+function genCradle(){
+  return mix([
+    [.08,()=>figure(1.3,.4,0,1.65,.8,0,-1,-.2,'sit')],
+    [.18,()=>{const x=rn(-4,4),z=rn(-3,4);return set(x,0,z,.14+(Math.abs(x)<1.6&&Math.abs(z)<1.2&&(fr(x*4)<.15||fr(z*4)<.15)?.18:0));}],
+    [.16,()=>{const x=rn(-4,4),y=R()*4;if(x>.8&&x<2.4&&y>1.6&&y<3)return false;return set(x,y,-3,.2+(fr(y/.3)<.08?-.06:0)+.05*R());}],
+    [.07,()=>{const x=rn(.8,2.4),y=rn(1.6,3),t=R()*3.2;return set(x-t*.25,y-t*.5,-3+t,.35*(1-t/3.4));}],
+    [.08,()=>{const sd=R()<.5?-4:4;return set(sd,R()*4,rn(-3,4),.14);}],
+    [.22,()=>{const q=R(); // cradle: slatted basket on two rockers
+      if(q<.55){const s=Math.floor(R()*4),t=R(),y=rn(.35,.95);if(s<2){const x=(s?-1:1)*.75;return set(x,y,rn(-.4,.4),(fr(t*8)<.35?.9:.25));}
+        const z=(s===2?-1:1)*.42;return set(rn(-.75,.75),y,z,(fr(t*12)<.35?.9:.25));}
+      if(q<.7)return set(rn(-.75,.75),.35,rn(-.42,.42),.4);
+      if(q<.85){const sd=R()<.5?-.35:.35,a=rn(-1,1);return set(Math.sin(a)*.95,.95-Math.cos(a)*.95+.02,sd,1);}
+      const [i,j,k]=inBall();return set(i*.35,.55+Math.abs(j)*.18,k*.2,.7);}],
+    [.07,()=>{const q=R(); // oil lamp on a shelf, and its light
+      if(q<.3)return set(rn(-3.8,-2.6),1.4,rn(-2.9,-2.5),.5);
+      if(q<.55){const a=R()*TAU,cp=rn(-1,1),sp=Math.sqrt(1-cp*cp);return set(-3.2+Math.cos(a)*sp*.13,1.47+cp*.05,-2.7+Math.sin(a)*sp*.09,.7);}
+      const [i,j,k]=inBall(),h=Math.abs(j);return set(-3.05+i*.03*(1-h),1.52+h*.12,-2.7+k*.03*(1-h),2.6);}],
+    [.08,()=>{const [i,j,k]=inBall();return set(-3.05+i*1.2,1.6+j*1.2,-2.4+k*1.2,.18);}],
+  ]);
+}
+
+/* ---------- The city at noon: a street of mudbrick houses ---------- */
+function genCity(){
+  const H=[];for(const side of [-1,1]){let z=12;while(z>-80){const w=rn(3,5),hw=rn(2.5,3.5);H.push([side*(3.6+hw),z-w/2,hw,w/2,rn(3.5,8),side]);z-=w+rn(0,.3);}}
+  const P=[];for(let i=0;i<8;i++)P.push([rn(-2.5,2.5),rn(-70,5)]);
+  return mix([
+    [.04,()=>light(0,-20,0,1.85,.4,-1,'stand',1.7)],
+    [.05,()=>R()<.5?figure(.9,-22,0,1.8,.8,0,1,.2,'walk'):figure(2.2,-21.6,0,1.75,.8,0,-1,-.2,'raise')],
+    [.6,()=>{const h=pick(H);box(h[0],0,h[1],h[2],h[4],h[3],.6);
+      if(Math.abs(Math.abs(o.x)-3.6)<.01){const lz=o.z-h[1],y=o.y;
+        if(Math.abs(lz)<.55&&y<2.3)return tw(()=>.05);
+        if(y>2.8&&fr((lz+h[3])/1.6)>.62&&fr((lz+h[3])/1.6)<.86&&fr(y/2.6)<.3)return tw(()=>.07);}
+      return tw(b=>b*(fr(o.y/.32)<.1?.75:1));}],
+    [.2,()=>{const x=rn(-3.6,3.6),z=rn(-80,14);return set(x,0,z,.2+.14*Math.pow(Math.abs(Math.sin(x*3.1)*Math.sin(z*2.7)),2));}],
+    [.08,()=>{const p=pick(P);return person(p[0],p[1],0,rn(1.6,1.8),.8,0,0,1);}],
+    [.12,()=>stars(0,0,-30,200,.7)],
+  ]);
+}
+
+/* ---------- The road to Madyan through the mountains of Sinai ---------- */
+function genRoad(){
+  const px=z=>6*Math.sin(z*.03);
+  const hf=(x,z)=>{const d=Math.abs(x-px(z));return Math.max(0,d-7)*.9*(1+.3*Math.sin(z*.05))+2.4*Math.abs(Math.sin(x*.19+z*.07))+1.1*Math.sin(x*.5-z*.3)*Math.min(1,d/10);};
+  return mix([
+    [.02,()=>{const z=25,x=6*Math.sin(z*.03);return light(x,z,hf(x,z),1.85,0,-1,'walk',1.9);}],
+    [.66,()=>terrain(hf,-90,90,-160,60,.9,2)],
+    [.1,()=>{const z=rn(-160,60),x=px(z)+gs()*.4;return set(x,hf(x,z)+.05,z,.75+.3*R());}],
+    [.08,()=>{const z=rn(-160,60),x=rn(-90,90);return set(x,hf(x,z)+rn(0,.4),z,.28,7);}],
+    [.16,()=>stars(0,0,-40,240)],
+  ]);
+}
+
+/* ---------- The well of Madyan: trough, shade tree, flocks and shepherds ---------- */
+function genWell(){
+  const T=tree(-9,0,-5,{len:3.2,rad:.45,depth:5,up:.25,spread:1.2,leaf:1.5});
+  const fl=[];for(let i=0;i<70;i++){const a=rn(-1.2,1.6),r=rn(4.5,13);fl.push([4+Math.cos(a)*r,Math.sin(a)*r,R()*TAU]);}
+  const sh=[];for(let i=0;i<26;i++){const a=R()*TAU,r=rn(2.3,5);sh.push([Math.cos(a)*r,Math.sin(a)*r]);}
+  return mix([
+    [.04,()=>light(4,1.3,0,1.85,0,-1,'stand',1.8)],
+    [.04,()=>R()<.5?figure(8,3.4,0,1.65,.85,0,-1,0,'stand'):figure(8.8,3,0,1.6,.85,0,-1,0,'stand')],
+    [.12,()=>{const a=R()*TAU,q=R(),c=Math.cos(a),s=Math.sin(a);
+      if(q<.6){const y=R()*.9;return set(c*1.4,y,s*1.4,(.5+(fr(y/.3)<.1?-.2:0))*shadeN(c,0,s)*1.2);}
+      if(q<.85){const r=rn(1.1,1.4);return set(c*r,.9,s*r,1);}
+      return set(c*R()*1.1,-.8,s*R()*1.1,.5,17);}],
+    [.08,()=>{if(R()<.8)return box(4,0,0,2,.6,.5,.5);return set(rn(2.1,5.9),.5,rn(-.4,.4),.9,17);}],
+    [.08,()=>R()<.5?T.bark(.9):T.leaf(1)],
+    [.1,()=>T.leaf(1)],
+    [.22,()=>{const f=pick(fl);return sheep(f[0],f[1],0,1,f[2],.8);}],
+    [.16,()=>{const p=pick(sh);return person(p[0],p[1],0,rn(1.6,1.85),.75,0,-p[0],-p[1]);}],
+    [.16,()=>terrain((x,z)=>.4*Math.sin(x*.1+z*.07)+.25*Math.sin(x*.3-z*.2)-.4,-50,50,-40,40,.7)],
+    [.08,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ---------- Ten years of shepherding: hills, grazing flock, a tent ---------- */
+function genPasture(){
+  const hf=(x,z)=>3*Math.sin(x*.04+z*.03)+2*Math.sin(x*.09-z*.05)+1*Math.sin(x*.2+z*.17);
+  const fl=[];for(let i=0;i<170;i++){const x=rn(-45,45),z=rn(-45,35);fl.push([x,z,R()*TAU]);}
+  return mix([
+    [.02,()=>light(0,5,hf(0,5),1.85,1,0,'walk',1.8)],
+    [.46,()=>terrain(hf,-120,120,-120,80,.85,1)],
+    [.28,()=>{const f=pick(fl);sheep(f[0],f[1],hf(f[0],f[1]),1,f[2],.85);return true;}],
+    [.1,()=>{const t=R(),u=rn(-1,1),x=-8+rn(-3,3),s=Math.sign(u),y=3*(1-Math.abs(u)),z=-10+u*2.6;return set(x,hf(-8,-10)+y,z,(.4+(fr(x*1.5)<.12?.3:0))*shadeN(0,.6,s)*1.2);}],
+    [.04,()=>{const a=R()*TAU,r=rn(2,2.3);return set(-8+Math.cos(a)*r*2,hf(-8,-4)+R()*.6,-3+Math.sin(a)*r,.5);}],
+    [.12,()=>stars(0,0,0,240)],
+  ]);
+}
+
+/* ---------- A fire on the side of the mountain ---------- */
+function genTur(){
+  const hf=(x,z)=>44*Math.exp(-(x*x/1000+(z+45)*(z+45)/550))+5*Math.abs(Math.sin(x*.11+z*.06))+2*Math.sin(x*.37-z*.21);
+  const fx=6,fz=-18,fy=hf(6,-18);
+  return mix([
+    [.02,()=>light(-1,3,hf(-1,3),1.85,.4,-1,'walk',1.9)],
+    [.02,()=>figure(-4.5,27,0,1.6,.8,0,1,-.3,'sit')],
+    [.62,()=>terrain(hf,-110,110,-130,60,.85,3)],
+    [.08,()=>flame(fx,fy+.2,fz,2.2,2.6)],
+    [.05,()=>{const [i,j,k]=inBall();return set(fx+i*6,fy+2+j*5,fz+k*6,.5,8);}],
+    [.05,()=>{const t=R(),x=-4+(fx+4)*t+Math.sin(t*9)*2,z=24+(fz-24)*t;return set(x,hf(x,z)+.08,z,.55);}],
+    [.05,()=>{const u=rn(-1,1),x=rn(-3,-1);return set(-4+x,Math.abs(u)<.99?1.6*(1-Math.abs(u)):0,26+u*1.3,.55*shadeN(0,.6,Math.sign(u))*1.2);}],
+    [.15,()=>stars(0,0,-20,260)],
+  ]);
+}
+
+/* ---------- The blessed tree in the holy valley of Tuwa, and the sandals ---------- */
+function genBush(){
+  const T=tree(0,0,0,{len:2.4,rad:.3,depth:6,up:.9,spread:1,leaf:1.1});
+  const hf=(x,z)=>Math.max(0,Math.abs(x)-10)*1.3+1.2*Math.abs(Math.sin(x*.3+z*.2))+.4*Math.sin(z*.4);
+  const rocks=[];for(let i=0;i<40;i++)rocks.push([rn(-12,12),rn(-25,20),rn(.2,.7)]);
+  return mix([
+    [.04,()=>light(1.5,6,hf(1.5,6),1.85,-.25,-1,'stand',1.7)],
+    [.16,()=>T.bark(1.5)],
+    [.22,()=>T.leaf(1.9)],
+    [.07,()=>{const [i,j,k]=inBall();return set(i*5,4+j*5,k*5,.6,8);}],
+    [.05,()=>set(gs()*.6,rn(3,30),gs()*.6,1,6)],
+    [.34,()=>terrain(hf,-40,40,-60,40,.8,1.5)],
+    [.04,()=>{const s=R()<.5?0:1,a=R()*TAU,r=Math.sqrt(R());return set(3+s*.6+Math.cos(a)*r*.13,hf(3,5)+.03,5+s*.1+Math.sin(a)*r*.32,R()<.25?1:.6);}],
+    [.06,()=>{const r=pick(rocks);return sphere(r[0],hf(r[0],r[1])+r[2]*.5,r[1],r[2],.5);}],
+    [.06,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ---------- The staff becomes a serpent; the hand comes out white ---------- */
+function genSerpent(){
+  const path=t=>{if(t<.82){const a=t*TAU*2.3,r=3.4*(1-t*.75);return [Math.cos(a)*r,.35*(1-t),Math.sin(a)*r];}
+    const u=(t-.82)/.18,a=.82*TAU*2.3,r=3.4*(1-.82*.75);return [Math.cos(a)*r*(1-u*.4),.3+u*2.6,Math.sin(a)*r+u*.8];};
+  return mix([
+    [.04,()=>light(-3.5,4,0,1.85,1,-1,'stand',1.7)],
+    [.4,()=>{const t=R(),p=path(t),q=path(Math.min(1,t+.004)),th=R()*TAU,rad=.42*(1-t*.55)+.06;
+      let tx=q[0]-p[0],ty=q[1]-p[1],tz=q[2]-p[2];const l=Math.hypot(tx,ty,tz)||1;tx/=l;ty/=l;tz/=l;
+      let ux=-tz,uz=tx;const ul=Math.hypot(ux,uz)||1;ux/=ul;uz/=ul;const vx=ty*uz,vy=tz*ux-tx*uz,vz=-ty*ux;
+      const c=Math.cos(th),s=Math.sin(th),b=.5+.6*Math.pow(Math.abs(Math.sin(t*420+th*2)),4);
+      return set(p[0]+ux*c*rad+vx*s*rad,p[1]+vy*s*rad+rad,p[2]+uz*c*rad+vz*s*rad,b*shadeN(ux*c+vx*s,vy*s,uz*c+vz*s)*1.2,11);}],
+    [.14,()=>{const q=R(),cx=0,cy=6.5,cz=-3; // the white hand, open, palm toward us
+      if(q<.5){const a=R()*TAU,r=Math.sqrt(R());return set(cx+Math.cos(a)*r*.8,cy+Math.sin(a)*r*1,cz+gs()*.08,1.8);}
+      const f=Math.floor(R()*5),bx=[-.62,-.3,0,.3,.72][f],len=[.9,1.25,1.35,1.2,.8][f],ang=f===4?-.8:(f-1.5)*.08,t=R();
+      return set(cx+bx+Math.sin(ang)*len*t+gs()*.07,cy+(f===4?-.2:.85)+Math.cos(ang)*len*t+gs()*.07,cz+gs()*.07,1.9);}],
+    [.08,()=>{const [i,j,k]=inBall();return set(i*2.6,6.6+j*2.6,-3+k*1.2,.45,8);}],
+    [.3,()=>terrain((x,z)=>.6*Math.sin(x*.2+z*.15)+.3*Math.sin(x*.5-z*.4),-40,40,-40,30,.75)],
+    [.08,()=>stars(0,0,0,200)],
+  ]);
+}
+
+/* ---------- The throne hall ---------- */
+function genThrone(){
+  const cols=[];for(let j=0;j<6;j++)for(const x of [-8,8])cols.push([x,4-j*5.5]);
+  return mix([
+    [.04,()=>R()<.5?light(-.9,-12,0,1.85,0,-1,'stand',1.8):light(.9,-12,0,1.8,0,-1,'stand',1.4)],
+    [.04,()=>figure(0,-24.1,1.75,1.85,.95,0,0,1,'sit')],
+    [.05,()=>{const i=Math.floor(R()*8);return figure(i%2?-4.5:4.5,-4-Math.floor(i/2)*4,0,1.85,.8,0,i%2?1:-1,0,'stand');}],
+    [.3,()=>{const c=pick(cols);return column(c[0],0,c[1],.9,11,.7);}],
+    [.12,()=>{const x=rn(-12,12),z=rn(-28,8),carpet=Math.abs(x)<1.6;return set(x,0,z,carpet?.35+(fr(z/.8)<.1||Math.abs(Math.abs(x)-1.5)<.08?.35:0):.14+((fr(x/2)<.04||fr(z/2)<.04)?.14:0));}],
+    [.12,()=>{const st=Math.floor(R()*5);return box(0,st*.35,-22-st*.5,4.5-st*.5,.35,1.2+st*.5*0+.5,.5);}],
+    [.12,()=>{const q=R(),y0=1.75,z0=-24.3; // the throne
+      if(q<.35)return box(0,y0,z0,1.2,1.1,.9,.8);
+      if(q<.65)return box(0,y0+1.1,z0-.8,1.2,3.2,.2,.75);
+      if(q<.85){const sx=R()<.5?-1.2:1.2;return box(sx,y0+1.1,z0,.12,.7,.9,.8);}
+      const sx=R()<.5?-1:1;return rod(sx,y0,z0+.7,sx,y0+1.1,z0+.7,.1,.7);}],
+    [.08,()=>{const s=R()<.5?-1:1,cx=s*4,cz=-18,q=R();
+      if(q<.4)return rod(cx,0,cz,cx,1.4,cz,.08,.6);
+      if(q<.65){const a=R()*TAU,cp=R(),sp=Math.sqrt(1-cp*cp);return set(cx+Math.cos(a)*sp*.7,1.9-cp*.5,cz+Math.sin(a)*sp*.7,.8);}
+      return flame(cx,1.9,cz,1.1,2.4);}],
+    [.14,()=>{const x=rn(-12,12),y=R()*12,z=-27;let b=.25;if(y>3&&y<10)b+=.3*Math.pow(Math.abs(Math.sin(x*2.1)*Math.sin(y*2.7)),3);return set(x,y,z,b);}],
+    [.06,()=>{const q=R(),cy=9.5,cz=-26.8; // winged sun disk above the throne
+      if(q<.4){const a=R()*TAU,r=Math.sqrt(R())*.8;return set(Math.cos(a)*r,cy+Math.sin(a)*r,cz,1.5);}
+      const s=R()<.5?-1:1,t=R(),y=cy+Math.sin(t*Math.PI*.8)*.6*(1-t)-t*.3+rn(-.5,.5)*(1-t*.6);return set(s*(.9+t*4.2),y,cz,(fr(t*9)<.3?1.2:.7));}],
+    [.06,()=>box(0,11,-10,12,.6,18,.3)],
+  ]);
+}
+
+/* ---------- The plaza on the day of adornment (shared by two scenes) ---------- */
+function arenaParts(center){
+  const crowd=[];for(let i=0;i<(small?500:1100);i++){const a=rn(.15,TAU-.15)+Math.PI/2,r=rn(20,40);crowd.push([Math.cos(a)*r,Math.sin(a)*r,rn(1.55,1.85)]);}
+  return [
+    [.28,()=>{const p=pick(crowd);return person(p[0],p[1],0,p[2],.7,0,-p[0],-p[1]);}],
+    [.16,()=>{const r=Math.sqrt(R())*44,a=R()*TAU;return set(Math.cos(a)*r,0,Math.sin(a)*r,.18+.05*R());}],
+    [.08,()=>{const q=R(); // the royal stand with its canopy
+      if(q<.5)return box(0,0,-30,6,2,3,.55);
+      if(q<.75){const sx=R()<.5?-5.5:5.5,sz=R()<.5?-32.5:-27.5;return rod(sx,2,sz,sx,6,sz,.1,.6);}
+      return set(rn(-6,6),6+rn(0,.2),rn(-33,-27),.45);}],
+    [.06,()=>stars(0,0,0,220,.6)],
+  ].concat(center);
+}
+function genArena(){
+  const ropes=[];for(let i=0;i<70;i++){const a=R()*TAU,r=Math.sqrt(R())*12;ropes.push([Math.cos(a)*r,Math.sin(a)*r,R()*TAU,rn(1.5,3.5),R()<.5]);}
+  return mix(arenaParts([
+    [.04,()=>light(0,14,0,1.85,0,-1,'stand',1.9)],
+    [.06,()=>{const a=Math.PI+.4+Math.floor(R()*12)/11*(Math.PI-.8);return figure(Math.cos(a)*9,Math.sin(a)*9,0,1.8,.85,0,-Math.cos(a),-Math.sin(a),'raise');}],
+    [.3,()=>{const r=pick(ropes),t=rn(-.5,.5),c=Math.cos(r[2]),s=Math.sin(r[2]),w=r[4]?Math.sin(t*9)*.35:0;
+      return set(r[0]+c*t*r[3]-s*w,.06+gs()*.02,r[1]+s*t*r[3]+c*w,r[4]?.8:.95,11);}],
+  ]));
+}
+function genArena2(){
+  const pr=[];for(let i=0;i<120;i++){const a=rn(0,TAU),r=rn(8,15);pr.push([Math.cos(a)*r,Math.sin(a)*r]);}
+  const path=t=>{const a=t*TAU*2.6,r=5.5*(1-t*.7);return [Math.cos(a)*r,t>.86?(t-.86)*28:0,Math.sin(a)*r];};
+  return mix(arenaParts([
+    [.04,()=>light(0,12,0,1.85,0,-1,'stand',1.9)],
+    [.24,()=>{const t=R(),p=path(t),th=R()*TAU,rad=.9*(1-t*.5)+.1;
+      return set(p[0]+Math.cos(th)*rad,p[1]+rad+Math.sin(th)*rad,p[2]+Math.sin(th)*rad*.6,(.6+.6*Math.pow(Math.abs(Math.sin(t*300+th)),4))*shadeN(Math.cos(th),Math.sin(th),0)*1.2,11);}],
+    [.12,()=>{const p=pick(pr);return prostrate(p[0],p[1],0,.8,-p[0],-p[1]);}],
+  ]));
+}
+
+/* ---------- Palm trunks: the threat, and the steadfastness ---------- */
+function genPalms(){
+  const P=[];for(let i=0;i<70;i++)P.push([rn(-40,40),rn(-40,25),0,rn(9,14),rn(-.15,.15),rn(-.15,.15)]);
+  return mix([
+    [.05,()=>{const i=Math.floor(R()*10);return figure(-9+i*2,14+(i%3)*.6,0,1.8,.85,0,0,1,'stand');}],
+    [.55,()=>{const p=pick(P);if(R()<.75){const t=R(),th=R()*TAU,r=.36*(1-t*.25),h=p[3];
+      return set(p[0]+p[4]*t*t*h+Math.cos(th)*r,t*h,p[1]+p[5]*t*t*h+Math.sin(th)*r,(.4+(fr(t*h*2.4)<.25?.5:0))*shadeN(Math.cos(th),0,Math.sin(th))*1.2);}
+      return palm(p);}],
+    [.3,()=>terrain((x,z)=>.3*Math.sin(x*.1+z*.07),-60,60,-60,40,.7)],
+    [.15,()=>{const az=rn(-1,1)-Math.PI/2,e=.25*R()*R(),rr=200;return set(Math.cos(az)*Math.cos(e)*rr,Math.sin(e)*rr,Math.sin(az)*Math.cos(e)*rr,1.2*Math.exp(-e*14)*(1-Math.abs(az+Math.PI/2)));}],
+  ]);
+}
+
+/* ---------- The signs: a wheat field under storm, rain and locusts ---------- */
+function genPlagues(){
+  return mix([
+    [.4,()=>{const x=rn(-60,60),z=rn(-45,40),h=rn(.9,1.3),t=R();
+      if(t<.75)return set(x+Math.sin(x*3)*.05*t,t*h,z,.25+.25*t,5);
+      const [i,j,k]=inBall();return set(x+i*.05,h+j*.15,z+k*.05,.55,5);}],
+    [.2,()=>{const [i,j,k]=inBall();return set(i*30,14+j*6,k*30,.45+.3*R(),10);}],
+    [.14,()=>set(rn(-60,60),rn(0,60),rn(-45,40),.3,15)],
+    [.16,()=>cloud([[0,42,0,30],[30,44,-20,25],[-30,40,15,25],[10,46,30,22]],.3)],
+    [.1,()=>{const x=rn(-60,60),z=rn(-2,2)+Math.sin(x*.08)*4;return set(x,-.1,z,.35,17);}],
+  ]);
+}
+
+/* ---------- The night of the exodus: a long procession ---------- */
+function genExodus(){
+  const px=z=>4*Math.sin(z*.04);
+  const W=[];for(let i=0;i<(small?900:2200);i++){const z=rn(-60,60);W.push([px(z)+gs()*2.2,z,rn(1.1,1.85)]);}
+  return mix([
+    [.02,()=>light(0,-46,0,1.9,0,-1,'walk',2)],
+    [.4,()=>{const w=pick(W);return person(w[0],w[1],0,w[2],.8,13,0,-1);}],
+    [.36,()=>terrain((x,z)=>.6*Math.sin(x*.07+z*.04)+.3*Math.sin(x*.2-z*.13),-90,90,-120,70,.7)],
+    [.06,()=>{const a=rn(-.9,2.2);return set(40+Math.cos(a)*3,70+Math.sin(a)*3,-150,1.8);}],
+    [.18,()=>stars(0,0,-40,240)],
+  ]);
+}
+
+/* ---------- The shore: the sea ahead, the army behind ---------- */
+function genShore(){
+  const C=[];for(let i=0;i<(small?300:700);i++)C.push([rn(-30,30),rn(3,22),rn(1.1,1.85)]);
+  return mix([
+    [.02,()=>light(0,1.6,0,1.9,0,-1,'raise',2)],
+    [.34,()=>water(-90,90,-100,0,0,0,12)],
+    [.16,()=>{const x=rn(-90,90),z=rn(0,100);return set(x,z*.02,z,.16+.05*R());}],
+    [.18,()=>{const c=pick(C);return person(c[0],c[1],c[1]*.02,c[2],.8,0,0,-1);}],
+    [.16,()=>{const [i,j,k]=inBall();return set(i*50,4+Math.abs(j)*10,85+k*14,.35,10);}],
+    [.1,()=>{const k=Math.floor(R()*24),x=-46+k*4,a=R()*TAU;return set(x+gs()*.05,1+Math.sin(a)*1,78+Math.cos(a)*1,.8);}],
+    [.06,()=>stars(0,0,0,240)],
+  ]);
+}
+
+/* ---------- The sea parted: walls of water like great mountains ---------- */
+function genParted(){
+  const W=[];for(let i=0;i<(small?500:1200);i++){const z=rn(-50,50);W.push([gs()*1.8,z,rn(1.1,1.85)]);}
+  return mix([
+    [.02,()=>light(0,-20,-3,1.9,0,-1,'walk',2)],
+    [.56,()=>{const s=R()<.5?-1:1,y=rn(-3,24),z=rn(-70,30),x=s*(6+Math.pow(Math.max(0,y-18)/6,2)*2.5+gs()*.12);
+      return set(x,y,z,(.6+.6*Math.pow(Math.abs(Math.sin(y*1.3+z*.4)),6))*(y>22?1.4:1)*shadeN(-s,.2,0)*1.9,14);}],
+    [.08,()=>{const s=R()<.5?-1:1,x=s*rn(8.5,35),z=rn(-70,30);return set(x,24,z,.3+.6*Math.pow(Math.abs(Math.sin(x*.7+z*1.9)),10),12);}],
+    [.1,()=>{const x=rn(-6,6),z=rn(-70,30);return set(x,-3+.15*Math.sin(x*2+z*.7),z,.22+.2*Math.pow(Math.abs(Math.sin(x*2+z*.7)),4));}],
+    [.2,()=>{const w=pick(W);return person(w[0],w[1],-3,w[2],.8,13,0,-1);}],
+    [.06,()=>stars(0,0,-40,260)],
+  ]);
+}
+
+/* ---------- The sea closes over Pharaoh and his army ---------- */
+function genDrowning(){
+  const wheels=[];for(let i=0;i<14;i++)wheels.push([rn(-30,30),rn(-30,30),R()*TAU,rn(-.5,.5)]);
+  const hf=(x,z)=>2.2*Math.sin(x*.12+z*.05)+1.4*Math.sin(x*.05-z*.13)+.6*Math.sin(x*.4+z*.3);
+  return mix([
+    [.6,()=>{const x=rn(-80,80),z=rn(-90,60),h=hf(x,z);return set(x,h,z,.25+.9*Math.pow(Math.max(0,Math.sin(x*.12+z*.05)),10)+.2*Math.pow(Math.abs(Math.sin(x*1.3+z*.9)),8),12);}],
+    [.12,()=>{const w=pick(wheels),a=R()*TAU,r=R()<.7?1:R(),c=Math.cos(w[2]),s=Math.sin(w[2]);
+      return set(w[0]+c*Math.cos(a)*r,hf(w[0],w[1])+Math.sin(a)*r+w[3],w[1]+s*Math.cos(a)*r,r>.9?.9:.6,12);}],
+    [.08,()=>{const w=pick(wheels),t=rn(-2,2);return set(w[0]+t,hf(w[0],w[1])+.2+t*.2,w[1]+t*.3,.7,12);}],
+    [.12,()=>{const [i,j,k]=inBall();return set(i*60,.5+Math.abs(j)*3,k*60,.35,12);}],
+    [.08,()=>cloud([[0,40,-40,40],[40,44,0,30],[-40,42,10,30]],.28)],
+  ]);
+}
+
+/* ---------- Dawn over a calm sea ---------- */
+function genBody(){
+  const rocks=[];for(let i=0;i<60;i++)rocks.push([rn(-50,50),rn(8,26),rn(.4,2)]);
+  return mix([
+    [.46,()=>{const x=rn(-110,110),z=rn(-150,6);return set(x,0,z,.22+.9*Math.pow(Math.abs(Math.sin(x*.9+z*2)),10)*Math.exp(-x*x/800)*Math.min(1,-z/60+.2),17);}],
+    [.14,()=>{const x=rn(-150,150),z=rn(6,40);return set(x,(z-6)*.03,z,.18+.05*R());}],
+    [.12,()=>{const r=pick(rocks);return sphere(r[0],r[2]*.4,r[1],r[2],.5);}],
+    [.2,()=>{const az=-Math.PI/2+rn(-1,1),e=.3*R()*R(),rr=230;return set(Math.cos(az)*Math.cos(e)*rr,Math.sin(e)*rr,Math.sin(az)*Math.cos(e)*rr,1.4*Math.exp(-e*12)*(1-Math.abs(az+Math.PI/2)));}],
+    [.08,()=>stars(0,0,0,240,.5)],
+  ]);
+}
+
+/* ---------- Madinah: the Prophet's mosque among the palms, a crescent ---------- */
+function genAshura(){
+  const palms=[];for(let i=0;i<60;i++){let x,z;do{x=rn(-60,60);z=rn(-60,50);}while(Math.abs(x)<20&&Math.abs(z)<24);palms.push([x,z,0,rn(8,12),rn(-.15,.15),rn(-.15,.15)]);}
+  const cols=[];for(let i=0;i<7;i++)for(let j=0;j<3;j++)cols.push([-12+i*4,-16+j*3.2]);
+  return mix([
+    [.07,()=>{const r=Math.floor(R()*4),c=Math.floor(R()*12);return figure(-8.8+c*1.6,-12+r*1.6,0,1.75,.85,0,0,-1,r%2?'bow':'stand');}],
+    [.18,()=>{const t=R()*132,p=t<36?[-18+t,-20]:t<66?[18,-20+(t-36)]:t<102?[18-(t-66),10]:[-18,10-(t-102)];
+      if(t>80&&t<86)return false;return set(p[0]+gs()*.2,R()*2.6,p[1]+gs()*.2,.4+(fr(R()*3)<.1?.2:0));}],
+    [.12,()=>{const c=pick(cols),t=R(),th=R()*TAU;return set(c[0]+Math.cos(th)*.25,t*3.4,c[1]+Math.sin(th)*.25,(.45+(fr(t*8)<.25?.3:0))*shadeN(Math.cos(th),0,Math.sin(th))*1.2);}],
+    [.1,()=>{const x=rn(-14,14),z=rn(-18,-8);return set(x,3.4+R()*.15,z,.3+.3*Math.pow(Math.abs(Math.sin(x*4+z*9)),4));}],
+    [.14,()=>ground(-30,30,-30,24,0,.15)],
+    [.28,()=>palm(pick(palms))],
+    [.04,()=>{const a=rn(-.9,2.2);return set(-40+Math.cos(a)*4,80+Math.sin(a)*4,-160,1.8);}],
+    [.14,()=>stars(0,0,0,230)],
+  ]);
+}
+
+const Z=i=>[0,0,-i*170];
+PointStory.run({
+  scenes:{
+    egypt:{at:Z(0),build:genEgypt},
+    temple:{at:Z(1),build:genTemple},
+    house:{at:Z(2),build:genHouse,scale:.5},
+    chest:{at:Z(3),build:genChest,scale:.4},
+    garden:{at:Z(4),build:genGarden,scale:.6},
+    cradle:{at:Z(5),build:genCradle,scale:.3},
+    city:{at:Z(6),build:genCity,scale:.6},
+    road:{at:Z(7),build:genRoad},
+    well:{at:Z(8),build:genWell,scale:.6},
+    pasture:{at:Z(9),build:genPasture},
+    tur:{at:Z(10),build:genTur},
+    bush:{at:Z(11),build:genBush,scale:.5},
+    serpent:{at:Z(12),build:genSerpent,scale:.5},
+    throne:{at:Z(13),build:genThrone,scale:.7},
+    arena:{at:Z(14),build:genArena},
+    arena2:{at:Z(15),build:genArena2},
+    palms:{at:Z(16),build:genPalms},
+    plagues:{at:Z(17),build:genPlagues},
+    exodus:{at:Z(18),build:genExodus},
+    shore:{at:Z(19),build:genShore},
+    parted:{at:Z(20),build:genParted},
+    drowning:{at:Z(21),build:genDrowning},
+    body:{at:Z(22),build:genBody},
+    ashura:{at:Z(23),build:genAshura},
+  },
+  shots:[
+    {scene:'egypt',cam:[70,35,90],tgt:[-5,8,-40]},
+    {scene:'temple',cam:[26,8,40],tgt:[0,9,-10]},
+    {scene:'egypt',cam:[30,4,52],tgt:[0,3,26]},
+    {scene:'house',cam:[10,4,14],tgt:[0,2.5,-1],grain:.5},
+    {scene:'chest',cam:[4,2.2,7],tgt:[0,.5,0],grain:.35},
+    {scene:'garden',cam:[16,7,22],tgt:[0,1,0],grain:.6},
+    {scene:'cradle',cam:[3.5,2.2,4.5],tgt:[0,.8,0],grain:.3,orbit:.4},
+    {scene:'city',cam:[0,3,18],tgt:[0,3,-20],grain:.6,orbit:.1},
+    {scene:'city',cam:[0,9,-44],tgt:[0,2,-10],grain:.6,orbit:.1},
+    {scene:'road',cam:[8,6,40],tgt:[0,4,-40]},
+    {scene:'well',cam:[12,6,16],tgt:[0,1,0],grain:.6},
+    {scene:'pasture',cam:[30,10,40],tgt:[0,3,0]},
+    {scene:'tur',cam:[20,8,60],tgt:[4,14,-18]},
+    {scene:'bush',cam:[6,4,12],tgt:[0,3,0],grain:.45},
+    {scene:'serpent',cam:[6,5,10],tgt:[0,2.5,-1],grain:.45},
+    {scene:'throne',cam:[0,5,22],tgt:[0,4,-20],grain:.7,orbit:.12},
+    {scene:'throne',cam:[4,7,-6],tgt:[0,4,-24],grain:.7,orbit:.12},
+    {scene:'arena',cam:[30,14,40],tgt:[0,1,0]},
+    {scene:'arena2',cam:[20,9,28],tgt:[0,2,0]},
+    {scene:'palms',cam:[20,6,30],tgt:[0,6,0]},
+    {scene:'plagues',cam:[30,10,40],tgt:[0,8,0]},
+    {scene:'exodus',cam:[18,6,40],tgt:[0,2,-10]},
+    {scene:'shore',cam:[0,8,50],tgt:[0,3,-10]},
+    {scene:'parted',cam:[0,22,70],tgt:[0,3,-30]},
+    {scene:'drowning',cam:[25,12,35],tgt:[0,1,0]},
+    {scene:'body',cam:[20,5,40],tgt:[0,2,-40]},
+    {scene:'ashura',cam:[30,12,40],tgt:[0,3,0]},
+    {scene:'egypt',cam:[90,45,110],tgt:[-5,8,-40]},
+  ]
+});
+})();
+</script>
